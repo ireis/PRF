@@ -11,10 +11,6 @@ from . import misc_functions as m
 ############################################################
 ############################################################
 
-
-
-
-
 class DecisionTreeClassifier:
     """
     This the the decision tree classifier class.
@@ -132,6 +128,7 @@ class RandomForestClassifier:
         self.max_depth = max_depth
         self.keep_proba = keep_proba
         self.bootstrap = bootstrap
+        
 
     def _choose_objects(self, X, y, pX, py):
         """
@@ -151,6 +148,7 @@ class RandomForestClassifier:
 
     def _fit_single_tree(self, X, y, pX, py):
         
+        numpy.random.seed()
         tree = DecisionTreeClassifier(criterion=self.criterion,
                               max_features=self.max_features_num,
                               use_py_gini = self.use_py_gini,
@@ -187,11 +185,11 @@ class RandomForestClassifier:
         else:
             self.max_features_num = self.n_features_
 
-        if py == None:
+        if py is None:
             py = m.get_pY(numpy.ones(len(y)), y)
             
         #tree_list = [self._fit_single_tree(X, y, dX, py) for i in range(self.n_estimators_)]
-        tree_list = Parallel(n_jobs=-1, verbose = 10)(delayed(self._fit_single_tree)
+        tree_list = Parallel(n_jobs=-1, verbose = 0)(delayed(self._fit_single_tree)
                                                   (X, y, dX, py)                   for i in range(self.n_estimators_))
 
         for tree in tree_list:
@@ -199,6 +197,8 @@ class RandomForestClassifier:
             self.feature_importances_ += numpy.array(tree.feature_importances_)
 
         self.feature_importances_ /= self.n_estimators_
+        
+        return self
 
 
 
@@ -269,6 +269,19 @@ class RandomForestClassifier:
         y_pred = numpy.argmax(all_proba, axis = 1)
 
         return y_pred, all_proba
+    
+    def __str__(self):
+        sb = []
+        do_not_print = ['estimators_', 'use_py_gini', 'use_py_leafs']
+        for key in self.__dict__:
+            if key not in do_not_print:
+                sb.append("{key}='{value}'".format(key=key, value=self.__dict__[key]))
+
+        sb = 'ProbabilisticRandomForestClassifier(' + ', '.join(sb) + ')'
+        return sb
+
+    def __repr__(self):
+        return self.__str__() 
 
 
 
