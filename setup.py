@@ -11,6 +11,8 @@ setup(name='PRF',
       author='Itamar Reis, Dalya Baron',
       author_email='itamarreis@mail.tau.ac.il, dalyabaron@gmail.com',
       packages=['PRF'],
+      zip_safe=False,
       install_requires=['numpy', 'scipy',
                       'numba', 'joblib']
+
      )

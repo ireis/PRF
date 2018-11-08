@@ -1,7 +1,8 @@
 import numpy
 from numba import jit, jitclass
-import best_split
-import misc_functions as m
+
+from . import best_split
+from . import misc_functions as m
 
 #from importlib import reload
 #reload(m)
@@ -36,17 +37,17 @@ class _tree:
             node_list.append([node_idx, this_node.feature_index, this_node.feature_threshold, node_idx_right,node_idx_left, None])
 
         return last_node_left_branch, node_list
-    
-    
-############################################################ 
-############################################################ 
+
+
+############################################################
+############################################################
 ############################################################
 ############################################################
 ############               TRAIN                ############
 ############################################################
 ############################################################
-############################################################ 
-############################################################ 
+############################################################
+############################################################
 
 
 
@@ -55,7 +56,7 @@ def fit_tree(X, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, max
     function grows a recursive disicion tree according to the objects X and their classifications y
     """
 
-    if len(X) == 0: 
+    if len(X) == 0:
         print('Warning: empty node')
         return _tree()
 
@@ -115,22 +116,22 @@ def fit_tree(X, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, max
     else:
         class_probas = m.return_class_probas(pnode, py_leafs)
         return _tree(results= class_probas)#Tree(results=self._uniqueCounts(py))
-    
-    
-    
-############################################################ 
-############################################################ 
+
+
+
+############################################################
+############################################################
 ############################################################
 ############################################################
 ############               PREDICT              ############
 ############################################################
-############################################################ 
-############################################################ 
-############################################################ 
+############################################################
+############################################################
+############################################################
 
 
 
-    
+
 @jit(cache=cache, nopython=True)
 def predict_all(node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, X, dX, keep_proba):
 
@@ -155,7 +156,7 @@ def predict_single(node_tree_results, node_feature_idx, node_feature_th, node_tr
         tree_feature_th = node_feature_th[curr_node]
         true_branch_node = node_true_branch[curr_node]
         false_branch_node = node_false_branch[curr_node]
-        
+
         nof_classes = len(tree_results)
         #print(curr_node, node, tree_results, tree_feature_index, tree_feature_th, true_branch_node, false_branch_node)
 

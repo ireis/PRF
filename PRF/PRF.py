@@ -2,8 +2,8 @@ import numpy
 from joblib import Parallel, delayed
 import threading
 
-import tree
-import misc_functions as m
+from . import misc_functions as m
+from . import tree
 
 #from importlib import reload
 #reload(m)
@@ -76,7 +76,7 @@ class DecisionTreeClassifier:
         """
         the DecisionTreeClassifier.fit() function with a similar appearance to that of sklearn
         """
-        
+
         self.n_classes_ = py.shape[1]
         self.n_features_ = len(X[0])
         self.n_samples_ = len(X)
@@ -132,7 +132,7 @@ class RandomForestClassifier:
         self.max_depth = max_depth
         self.keep_proba = keep_proba
         self.bootstrap = bootstrap
-        
+
 
     def _choose_objects(self, X, pX, py):
         """
@@ -151,7 +151,7 @@ class RandomForestClassifier:
 
 
     def _fit_single_tree(self, X, pX, py):
-        
+
         numpy.random.seed()
         tree = DecisionTreeClassifier(criterion=self.criterion,
                               max_features=self.max_features_num,
@@ -202,7 +202,7 @@ class RandomForestClassifier:
             raise UserWarning('Both of {y, py} are given, ignoring y')
             self.n_classes_ = py.shape[1]
             self.label_dict = {i:i for i in range(self.n_classes_)}
-                               
+
 
         #tree_list = [self._fit_single_tree(X, y, dX, py) for i in range(self.n_estimators_)]
         tree_list = Parallel(n_jobs=-1, verbose = 0)(delayed(self._fit_single_tree)
@@ -213,7 +213,7 @@ class RandomForestClassifier:
             self.feature_importances_ += numpy.array(tree.feature_importances_)
 
         self.feature_importances_ /= self.n_estimators_
-        
+
         return self
 
     def predict_single_object(self, row):
@@ -232,14 +232,14 @@ class RandomForestClassifier:
 
         n_objects = class_proba.shape[0]
         new_class_proba = numpy.zeros(class_proba.shape)
-        
+
         #votes = numpy.zeros(class_proba.shape, dtype=numpy.float64)
 
         best_idx = numpy.argmax(class_proba, axis = 1)
         for i in range(n_objects):
             new_class_proba[i,best_idx[i]] = class_proba[i,best_idx[i]]
         #votes[best_idx] = 1
-        
+
 
         return new_class_proba
 
@@ -281,17 +281,17 @@ class RandomForestClassifier:
         proba /= self.n_estimators_
 
         return proba
-    
+
     def predict(self, X, dX):
         y_pred_inds = numpy.argmax(self.predict_proba(X, dX), axis = 1)
         y_pred = numpy.array([self.label_dict[i] for i in y_pred_inds])
         return y_pred
-    
+
     def score(self, X, dX, y):
         y_pred = self.predict(X, dX)
         score = (y_pred == (y)).sum()/len(y)
         return score
-    
+
     def __str__(self):
         sb = []
         do_not_print = ['estimators_', 'use_py_gini', 'use_py_leafs', 'label_dict']
@@ -303,8 +303,4 @@ class RandomForestClassifier:
         return sb
 
     def __repr__(self):
-        return self.__str__() 
-
-
-
-
+        return self.__str__()
