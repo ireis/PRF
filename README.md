@@ -1,6 +1,6 @@
 # PRF
 
-## installation
+## installation:
 
 clone the repository, and python setup.py install
 
