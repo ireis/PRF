@@ -1,11 +1,11 @@
 import numpy
 from numba import jit, jitclass
-from . import best_split
-from . import misc_functions as m
+import best_split
+import misc_functions as m
 
-from importlib import reload
-reload(m)
-reload(best_split)
+#from importlib import reload
+#reload(m)
+#reload(best_split)
 
 cache = True
 

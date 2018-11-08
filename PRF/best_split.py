@@ -1,9 +1,9 @@
 import numpy
 from numba import jit, jitclass
-from . import misc_functions as m
+import misc_functions as m
 
-from importlib import reload
-reload(m)
+#from importlib import reload
+#reload(m)
 
 ############################################################
 ############################################################

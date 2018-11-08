@@ -2,12 +2,12 @@ import numpy
 from joblib import Parallel, delayed
 import threading
 
-from . import tree
-from . import misc_functions as m
+import tree
+import misc_functions as m
 
-from importlib import reload
-reload(m)
-reload(tree)
+#from importlib import reload
+#reload(m)
+#reload(tree)
 
 ############################################################
 ############################################################
