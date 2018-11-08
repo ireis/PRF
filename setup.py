@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils.core import setup
 
 setup(name='PRF',
       version='0.1dev',
@@ -8,4 +11,6 @@ setup(name='PRF',
       author='Itamar Reis, Dalya Baron',
       author_email='itamarreis@mail.tau.ac.il, dalyabaron@gmail.com',
       packages=['PRF'],
+      install_requires=['numpy', 'scipy',
+                      'numba', 'joblib']
      )
