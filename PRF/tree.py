@@ -3,6 +3,10 @@ from numba import jit, jitclass
 from . import best_split
 from . import misc_functions as m
 
+from importlib import reload
+reload(m)
+reload(best_split)
+
 cache = True
 
 class _tree:
@@ -46,7 +50,7 @@ class _tree:
 
 
 
-def fit_tree(X, y, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, max_features, feature_importances, tree_n_samples, keep_proba):
+def fit_tree(X, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, max_features, feature_importances, tree_n_samples, keep_proba):
     """
     function grows a recursive disicion tree according to the objects X and their classifications y
     """
@@ -63,12 +67,11 @@ def fit_tree(X, y, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, 
         max_depth = tree_max_depth
 
     if depth < max_depth:
-        #scaled_py_gini = numpy.array([py_gini[i] * pnode[i] for i in range(len(X))])
-        scaled_py_gini = numpy.array([py_gini[:,0] * pnode[:] , py_gini[:,1] * pnode[:]]).T
+        scaled_py_gini = numpy.multiply(py_gini, pnode[:,numpy.newaxis])
 
         current_score, normalization, class_p_arr = best_split._gini_init(scaled_py_gini)
         features_chosen_indices = m.choose_features_jit(n_features, max_features)
-        gain, best_gain, best_attribute, best_attribute_value, best_left, best_right = best_split.get_best_split(X, scaled_py_gini,  y, current_score, features_chosen_indices, max_features)
+        gain, best_gain, best_attribute, best_attribute_value, best_left, best_right = best_split.get_best_split(X, scaled_py_gini,  current_score, features_chosen_indices, max_features)
 
 
 
@@ -94,25 +97,23 @@ def fit_tree(X, y, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, 
     if (best_gain > 0) and (numpy.sum(pnode_right) >= th) and (numpy.sum(pnode_left) >= th):
 
         # add the impurity of the best split into the feature importance value
-        p = len(y) / tree_n_samples
+        p = n_objects_node / tree_n_samples
         feature_importances[best_attribute] += p * best_gain
 
         # Split all the arrays according to the indicies we have for the object in each side of the split
         X_right, X_left = m.pull_values(X, best_right, best_left)
-        y_right, y_left = m.pull_values(y, best_right, best_left)
         dX_right, dX_left = m.pull_values(dX, best_right, best_left)
         py_right, py_left = m.pull_values(py_gini, best_right, best_left)
         py_leafs_right, py_leafs_left = m.pull_values(py_leafs, best_right, best_left)
 
         # go to the next steps of the recursive process
         depth = depth + 1
-        right_branch = fit_tree(X_right, y_right, dX_right, py_right, py_leafs_right, pnode_right, depth, is_max_right, tree_max_depth, max_features, feature_importances, tree_n_samples, keep_proba)
-        left_branch  = fit_tree(X_left,  y_left,  dX_left,  py_left,  py_leafs_left , pnode_left, depth, is_max_left, tree_max_depth, max_features, feature_importances, tree_n_samples, keep_proba)
+        right_branch = fit_tree(X_right, dX_right, py_right, py_leafs_right, pnode_right, depth, is_max_right, tree_max_depth, max_features, feature_importances, tree_n_samples, keep_proba)
+        left_branch  = fit_tree(X_left,  dX_left,  py_left,  py_leafs_left , pnode_left, depth, is_max_left, tree_max_depth, max_features, feature_importances, tree_n_samples, keep_proba)
 
         return _tree(feature_index=best_attribute, feature_threshold=best_attribute_value, true_branch=right_branch, false_branch=left_branch)
     else:
         class_probas = m.return_class_probas(pnode, py_leafs)
-        #print(len(y),is_max)
         return _tree(results= class_probas)#Tree(results=self._uniqueCounts(py))
     
     
@@ -154,13 +155,15 @@ def predict_single(node_tree_results, node_feature_idx, node_feature_th, node_tr
         tree_feature_th = node_feature_th[curr_node]
         true_branch_node = node_true_branch[curr_node]
         false_branch_node = node_false_branch[curr_node]
+        
+        nof_classes = len(tree_results)
         #print(curr_node, node, tree_results, tree_feature_index, tree_feature_th, true_branch_node, false_branch_node)
 
         if (tree_results[0] >= 0):
             #print(summed_prediction, tree_results, p_tree, tree_results * p_tree)
             summed_prediction = tree_results * p_tree
         else:
-            summed_prediction = numpy.zeros(2)
+            summed_prediction = numpy.zeros(nof_classes)
             if is_max:
                 val = x[tree_feature_index]
                 delta = dx[tree_feature_index]

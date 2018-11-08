@@ -5,6 +5,10 @@ import threading
 from . import tree
 from . import misc_functions as m
 
+from importlib import reload
+reload(m)
+reload(tree)
+
 ############################################################
 ############################################################
 ################ DecisionTreeClassifier Class  #############
@@ -48,7 +52,7 @@ class DecisionTreeClassifier:
         node_true_branch = numpy.ones(len(node_list), dtype = int)*(-1)
         node_false_branch = numpy.ones(len(node_list), dtype = int)*(-1)
 
-        for idx in range(len(node_list)):
+        for idx, n in enumerate(node_list):
 
             n = node_list[idx]
             if not n[3] is None:
@@ -68,12 +72,12 @@ class DecisionTreeClassifier:
 
         return
 
-    def fit(self, X, y, pX, py):
+    def fit(self, X, pX, py):
         """
         the DecisionTreeClassifier.fit() function with a similar appearance to that of sklearn
         """
-        self.n_classes_ = len(numpy.unique(y))
-        self.classes_ = numpy.sort(numpy.unique(y))
+        
+        self.n_classes_ = py.shape[1]
         self.n_features_ = len(X[0])
         self.n_samples_ = len(X)
         self.feature_importances_ = [0] * self.n_features_
@@ -96,7 +100,7 @@ class DecisionTreeClassifier:
             py_leafs = py_flat
         depth = 0
 
-        self.tree_ = tree.fit_tree(X, y, pX, py_gini, py_leafs, pnode, depth, is_max, self.max_depth, self.max_features, self.feature_importances_, self.n_samples_, self.keep_proba)
+        self.tree_ = tree.fit_tree(X, pX, py_gini, py_leafs, pnode, depth, is_max, self.max_depth, self.max_features, self.feature_importances_, self.n_samples_, self.keep_proba)
 
 
     def predict_proba(self, X, dX):
@@ -130,23 +134,23 @@ class RandomForestClassifier:
         self.bootstrap = bootstrap
         
 
-    def _choose_objects(self, X, y, pX, py):
+    def _choose_objects(self, X, pX, py):
         """
         function builds a sample of the same size as the input data, but chooses the objects with replacement
         according to the given probability matrix
         """
-        objects_indices = numpy.arange(len(y))
-        objects_chosen = numpy.random.choice(objects_indices, size=len(y), replace=True)
+        nof_objects = py.shape[0]
+        objects_indices = numpy.arange(nof_objects)
+        objects_chosen = numpy.random.choice(objects_indices, nof_objects, replace=True)
         X_chosen = X[objects_chosen, :]
-        y_chosen = y[objects_chosen]
         pX_chosen = pX[objects_chosen, :]
         py_chosen = py[objects_chosen, :]
 
-        return X_chosen, y_chosen, pX_chosen, py_chosen
+        return X_chosen, pX_chosen, py_chosen
 
 
 
-    def _fit_single_tree(self, X, y, pX, py):
+    def _fit_single_tree(self, X, pX, py):
         
         numpy.random.seed()
         tree = DecisionTreeClassifier(criterion=self.criterion,
@@ -157,20 +161,18 @@ class RandomForestClassifier:
                               keep_proba = self.keep_proba)
 
         if self.bootstrap:
-            X_chosen, y_chosen, pX_chosen, py_chosen = self._choose_objects(X, y, pX, py)
-            tree.fit(X_chosen, y_chosen, pX_chosen, py_chosen)
+            X_chosen, pX_chosen, py_chosen = self._choose_objects(X, pX, py)
+            tree.fit(X_chosen, pX_chosen, py_chosen)
         else:
-            tree.fit(X, y, pX, py)
+            tree.fit(X, pX, py)
 
         return tree
 
 
-    def fit(self, X, y, dX, py = None):
+    def fit(self, X, dX, y=None, py=None):
         """
         The RandomForestClassifier.fit() function with a similar appearance to that of sklearn
         """
-        self.n_classes_ = len(numpy.unique(y))
-        self.classes_ = list(numpy.sort(numpy.unique(y)))
         self.n_features_ = len(X[0])
         self.feature_importances_ = numpy.zeros(self.n_features_)
 
@@ -185,12 +187,26 @@ class RandomForestClassifier:
         else:
             self.max_features_num = self.n_features_
 
-        if py is None:
-            py = m.get_pY(numpy.ones(len(y)), y)
-            
+        # self.classes_ = list(numpy.sort(numpy.unique(y)))
+
+        if ((py is None) and (y is None)):
+            raise ValueError('At least one of {y, py} must be given')
+        elif py is None:
+            py, label_dict = m.get_pY(numpy.ones(len(y)), y)
+            self.n_classes_ = py.shape[1]
+            self.label_dict = label_dict
+        elif y is None:
+            self.n_classes_ = py.shape[1]
+            self.label_dict = {i:i for i in range(self.n_classes_)}
+        else:
+            raise UserWarning('Both of {y, py} are given, ignoring y')
+            self.n_classes_ = py.shape[1]
+            self.label_dict = {i:i for i in range(self.n_classes_)}
+                               
+
         #tree_list = [self._fit_single_tree(X, y, dX, py) for i in range(self.n_estimators_)]
         tree_list = Parallel(n_jobs=-1, verbose = 0)(delayed(self._fit_single_tree)
-                                                  (X, y, dX, py)                   for i in range(self.n_estimators_))
+                                                  (X, dX, py)                   for i in range(self.n_estimators_))
 
         for tree in tree_list:
             self.estimators_.append(tree)
@@ -200,8 +216,6 @@ class RandomForestClassifier:
         
         return self
 
-
-
     def predict_single_object(self, row):
 
         # let all the trees vote
@@ -210,7 +224,6 @@ class RandomForestClassifier:
         for tree_index in range(0, self.n_estimators_):
             y_proba_tree = self.estimators_[tree_index].predict_proba_one_object(row)
             summed_probabilites += y_proba_tree
-
 
         return numpy.argmax(summed_probabilites)
 
@@ -249,12 +262,12 @@ class RandomForestClassifier:
                     out[i] += prediction[i]
                     #out2[i] += prediction[i][1]
 
-    def predict(self, X, dX):
+    def predict_proba(self, X, dX):
         """
         The RandomForestClassifier.predict() function with a similar appearance to that of sklearn
         """
         #vote_count = numpy.zeros((X.shape[0], self.n_classes_), dtype=numpy.float64)
-        all_proba = numpy.zeros((X.shape[0], self.n_classes_), dtype=numpy.float64)
+        proba = numpy.zeros((X.shape[0], self.n_classes_), dtype=numpy.float64)
         #Parallel(n_jobs=-1,  backend="threading")(delayed(tree.node_arr_init)
         #                       () for tree in self.estimators_)
         lock = threading.Lock()
@@ -263,16 +276,25 @@ class RandomForestClassifier:
 
         for i, tree in enumerate(self.estimators_):
             tree.node_arr_init()
-            self.predict_single_tree(tree.predict_proba, X, dX, all_proba,  lock)
+            self.predict_single_tree(tree.predict_proba, X, dX, proba,  lock)
 
-        all_proba /= self.n_estimators_
-        y_pred = numpy.argmax(all_proba, axis = 1)
+        proba /= self.n_estimators_
 
-        return y_pred, all_proba
+        return proba
+    
+    def predict(self, X, dX):
+        y_pred_inds = numpy.argmax(self.predict_proba(X, dX), axis = 1)
+        y_pred = numpy.array([self.label_dict[i] for i in y_pred_inds])
+        return y_pred
+    
+    def score(self, X, dX, y):
+        y_pred = self.predict(X, dX)
+        score = (y_pred == (y)).sum()/len(y)
+        return score
     
     def __str__(self):
         sb = []
-        do_not_print = ['estimators_', 'use_py_gini', 'use_py_leafs']
+        do_not_print = ['estimators_', 'use_py_gini', 'use_py_leafs', 'label_dict']
         for key in self.__dict__:
             if key not in do_not_print:
                 sb.append("{key}='{value}'".format(key=key, value=self.__dict__[key]))

@@ -2,6 +2,9 @@ import numpy
 from numba import jit, jitclass
 from . import misc_functions as m
 
+from importlib import reload
+reload(m)
+
 ############################################################
 ############################################################
 ################ Find best split functions  ################
@@ -11,17 +14,7 @@ from . import misc_functions as m
 
 @jit(cache=True, nopython=True)
 def _gini_init(py):
-    """
-    calculates the gini impurity
-    given an array with probabilities for each object to be in
-                                          each class
 
-    gini impurity is
-    sum over classes of
-    x * (1 - x)
-    when x is
-    the fraction of objects in a class
-    """
     nof_classes = py.shape[1]
 
     # initializations
@@ -50,18 +43,7 @@ def _gini_init(py):
 
 @jit(cache=True, nopython=True)
 def _gini_update(normalization, class_p_arr, py):
-    """
-    this function is used to claculate
-    the change in the gini impurity if we add or remove a single object
 
-    the inputs normalization and class_p_arr,
-    contain values from the previous iteration,
-    that is before moving the object
-
-    py contains the probabilities of one object to be in each class
-
-    we use +py to add an object and -py to remove
-    """
     nof_classes = len(py)
 
     # initialization
@@ -84,24 +66,12 @@ def _gini_update(normalization, class_p_arr, py):
 
 
 @jit(cache=True, nopython=True)
-def get_best_split(X, py, y, current_score, features_chosen_indices, max_features):
-    """
-    Looks for the best possible split,
-    impurity-wise,
-    among all feature values,
-    among some features selected at random,
-    which are given in features_chosen_indices.
+def get_best_split(X, py, current_score, features_chosen_indices, max_features):
 
-    current_score is the impurity of the parent node,
-    it is used to calculate the gain,
-    the gain needs to be bigger than zero,
-    for highest gain split,
-    or else we do not split the node
-    """
     n_features = len(features_chosen_indices)
-    nof_objects = len(y)
+    nof_objects = py.shape[0]
 
-    # Initialize values in case no new best gain is found
+    # Initialize values in case no best split is found
     best_gain = 0
     gain = current_score
     best_attribute = 0
@@ -109,8 +79,6 @@ def get_best_split(X, py, y, current_score, features_chosen_indices, max_feature
     best_right = numpy.arange(1,nof_objects)
     best_left = numpy.arange(0,1)
 
-    # Loop over the possible features
-    
     n_visited = 0
     found_split = False
     while (n_visited < max_features) or ((found_split == False) and (n_visited < n_features)):
@@ -132,7 +100,6 @@ def get_best_split(X, py, y, current_score, features_chosen_indices, max_feature
         nof_objects_right = nof_objects
         nof_objects_left = 0
 
-        #print(10,  impurity_right, 0,  impurity_left)
         # In each iteration of this loop we move object by object from the left to the right side of the loop.
         for i in range(nof_objects):
 

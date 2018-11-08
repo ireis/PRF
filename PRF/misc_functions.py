@@ -170,17 +170,18 @@ def get_pY(pY_true, y_fake):
     """
     nof_objects = len(pY_true)
     
-    all_lables = numpy.unique(y_fake)
-    nof_lables = len(all_lables)
+    all_labels = numpy.unique(y_fake)
+    label_dict = {i:a for i,a in enumerate(all_labels) }
+    nof_labels = len(all_labels)
     
-    pY = numpy.zeros([nof_objects, nof_lables])
+    pY = numpy.zeros([nof_objects, nof_labels])
     
     for o in range(nof_objects):
-        for c_idx, c in enumerate(all_lables):
+        for c_idx, c in enumerate(all_labels):
             if y_fake[o] == c:
                 pY[o,c_idx] = pY_true[o]
             else:
-                pY[o,c_idx] = float(1 - pY_true[o])/(nof_lables - 1)
+                pY[o,c_idx] = float(1 - pY_true[o])/(nof_labels - 1)
                     
-    return pY
+    return pY, label_dict
 
