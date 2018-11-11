@@ -51,6 +51,7 @@ class DecisionTreeClassifier:
         node_feature_th = numpy.zeros(len(node_list))
         node_true_branch = numpy.ones(len(node_list), dtype = int)*(-1)
         node_false_branch = numpy.ones(len(node_list), dtype = int)*(-1)
+        node_p_right = numpy.zeros(len(node_list))
 
         for idx, n in enumerate(node_list):
 
@@ -60,7 +61,7 @@ class DecisionTreeClassifier:
                 node_feature_th[idx] = n[2]
                 node_true_branch[idx] = n[3]
                 node_false_branch[idx] = n[4]
-
+                node_p_right[idx] = n[6]
             else:
                 node_tree_results[idx] = n[5]
 
@@ -69,6 +70,7 @@ class DecisionTreeClassifier:
         self.node_true_branch = node_true_branch
         self.node_false_branch = node_false_branch
         self.node_tree_results = node_tree_results
+        self.node_p_right = node_p_right
 
         return
 
@@ -109,7 +111,7 @@ class DecisionTreeClassifier:
         """
         keep_proba = self.keep_proba
 
-        summed_prediction = tree.predict_all(self.node_tree_results, self.node_feature_idx, self.node_feature_th, self.node_true_branch, self.node_false_branch, X, dX, keep_proba)
+        summed_prediction = tree.predict_all(self.node_tree_results, self.node_feature_idx, self.node_feature_th, self.node_true_branch, self.node_false_branch, self.node_p_right, X, dX, keep_proba)
 
         return summed_prediction
 
@@ -133,6 +135,15 @@ class RandomForestClassifier:
         self.keep_proba = keep_proba
         self.bootstrap = bootstrap
 
+    def check_input_X(self, X, dX):
+
+        if dX is None:
+            dX = numpy.zeros(X.shape)
+
+        dX[numpy.isnan(dX)] = 0
+        X[numpy.isinf(dX)] = numpy.nan
+
+        return X, dX
 
     def _choose_objects(self, X, pX, py):
         """
@@ -169,7 +180,7 @@ class RandomForestClassifier:
         return tree
 
 
-    def fit(self, X, dX, y=None, py=None):
+    def fit(self, X, dX=None, y=None, py=None):
         """
         The RandomForestClassifier.fit() function with a similar appearance to that of sklearn
         """
@@ -203,10 +214,11 @@ class RandomForestClassifier:
             self.n_classes_ = py.shape[1]
             self.label_dict = {i:i for i in range(self.n_classes_)}
 
+        X, dX = self.check_input_X(X, dX)
 
-        #tree_list = [self._fit_single_tree(X, y, dX, py) for i in range(self.n_estimators_)]
-        tree_list = Parallel(n_jobs=-1, verbose = 0)(delayed(self._fit_single_tree)
-                                                  (X, dX, py)                   for i in range(self.n_estimators_))
+        tree_list = [self._fit_single_tree(X, dX, py) for i in range(self.n_estimators_)]
+        #tree_list = Parallel(n_jobs=-1, verbose = 0)(delayed(self._fit_single_tree)
+        #                                          (X, dX, py)                   for i in range(self.n_estimators_))
 
         for tree in tree_list:
             self.estimators_.append(tree)
@@ -262,7 +274,7 @@ class RandomForestClassifier:
                     out[i] += prediction[i]
                     #out2[i] += prediction[i][1]
 
-    def predict_proba(self, X, dX):
+    def predict_proba(self, X, dX=None):
         """
         The RandomForestClassifier.predict() function with a similar appearance to that of sklearn
         """
@@ -274,6 +286,8 @@ class RandomForestClassifier:
         #Parallel(n_jobs=-1, verbose = 10, backend="threading")(delayed(self.predict_single_tree)
         #                       (tree.predict_proba, X, dX, all_proba,  lock) for tree in self.estimators_)
 
+        X, dX = self.check_input_X(X, dX)
+
         for i, tree in enumerate(self.estimators_):
             tree.node_arr_init()
             self.predict_single_tree(tree.predict_proba, X, dX, proba,  lock)
@@ -282,12 +296,12 @@ class RandomForestClassifier:
 
         return proba
 
-    def predict(self, X, dX):
+    def predict(self, X, dX=None):
         y_pred_inds = numpy.argmax(self.predict_proba(X, dX), axis = 1)
         y_pred = numpy.array([self.label_dict[i] for i in y_pred_inds])
         return y_pred
 
-    def score(self, X, dX, y):
+    def score(self, X, y, dX=None):
         y_pred = self.predict(X, dX)
         score = (y_pred == (y)).sum()/len(y)
         return score

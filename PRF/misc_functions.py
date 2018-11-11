@@ -24,6 +24,9 @@ def split_probability(value, delta, threshold):
     Calculate split probability for a single object
     """
 
+    if numpy.isnan(value):
+        return numpy.nan
+
     if delta > 0:
         normalized_threshold = (threshold - value)/delta
         if (normalized_threshold <= -N_SIGMA):
@@ -91,17 +94,23 @@ def return_class_probas(pnode, pY):
 
 @jit(cache=True, nopython=True)
 def get_split_objects(pnode, p_split_right, p_split_left, is_max, n_objects_node, keep_proba):
+
     pnode_right = pnode*p_split_right
     pnode_left  = pnode*p_split_left
 
-    #best_path_objects_right = numpy.where( (p_split_right >= 0.5)  & is_max)[0]
-    #is_max_right = numpy.zeros(n_objects_node)
-    #is_max_right[best_path_objects_right] = 1
+    pnode_right_tot = numpy.nansum(pnode_right)
+    pnode_left_tot = numpy.nansum(pnode_left)
+    pnode_tot = pnode_right_tot + pnode_left_tot
 
-    #best_path_objects_left = numpy.where( (p_split_left >= 0.5)  & is_max)[0]
-    #is_max_left = numpy.zeros(n_objects_node)
-    #is_max_left[best_path_objects_left] = 1
+    is_nan = numpy.isnan(p_split_right)
 
+    p_split_right_batch = pnode_right_tot / pnode_tot
+    p_split_right[is_nan] = p_split_right_batch
+    pnode_right[is_nan] = pnode[is_nan] * p_split_right[is_nan]
+
+    p_split_left_batch = pnode_left_tot / pnode_tot
+    p_split_left[is_nan] = p_split_left_batch
+    pnode_left[is_nan] = pnode[is_nan] * p_split_left[is_nan]
 
     best_right = [0]
     best_left = [0]
@@ -110,6 +119,17 @@ def get_split_objects(pnode, p_split_right, p_split_left, is_max, n_objects_node
     is_max_left = [0]
 
     for i in range(n_objects_node):
+        #if is_nan[i]:
+        #    best_right.append(i)
+        #    best_left.append(i)
+        #    if (is_max[i] == 1):
+        #        if (p_split_right_batch > p_split_left_batch):
+        #            is_max_right.append(1)
+        #            is_max_left.append(0)
+        #        else:
+        #            is_max_right.append(0)
+        #            is_max_left.append(1)
+        #else:
         if (p_split_right[i] >= 0.5 and is_max[i] == 1):
             best_right.append(i)
             is_max_right.append(1)
@@ -129,14 +149,14 @@ def get_split_objects(pnode, p_split_right, p_split_left, is_max, n_objects_node
     is_max_right = numpy.array(is_max_right)
     is_max_left = numpy.array(is_max_left)
 
-    #best_right = numpy.unique(numpy.concatenate([best_path_objects_right, numpy.where(pnode_right > keep_proba)[0]]))
-    #best_left  = numpy.unique(numpy.concatenate([best_path_objects_left,  numpy.where(pnode_left  > keep_proba)[0]]))
+    pnode_right, _ = pull_values(pnode_right, best_right[1:], best_left[1:])
+    _, pnode_left  = pull_values(pnode_left,  best_right[1:], best_left[1:])
 
-    return pnode_right, pnode_left, best_right[1:], best_left[1:], is_max_right[1:], is_max_left[1:]
+    return pnode_right, pnode_left, best_right[1:], best_left[1:], is_max_right[1:], is_max_left[1:], p_split_right_batch
 
 
 #@jit(cache=True, nopython=True)
-def choose_features_jit(nof_features, max_features):
+def choose_features(nof_features, max_features):
     """
     function randomly selects the features that will be examined for each split
     """
@@ -144,7 +164,7 @@ def choose_features_jit(nof_features, max_features):
     #numpy.random.seed()
     #features_chosen = numpy.random.choice(features_indices, size=max_features, replace = True)
     features_chosen = numpy.random.choice(features_indices, size=nof_features, replace = False)
-    
+
     #print(features_chosen)
     return features_chosen
 
@@ -164,24 +184,23 @@ def get_pY(pY_true, y_fake):
     """
     Recieves a vector with the probability to be true (pY_true)
     returns a matrix with the probability to be in each class
-    
+
     we put pY_true as the probability of the true class
     and (1-pY_true)/(nof_lables-1) for all other classes
     """
     nof_objects = len(pY_true)
-    
+
     all_labels = numpy.unique(y_fake)
     label_dict = {i:a for i,a in enumerate(all_labels) }
     nof_labels = len(all_labels)
-    
+
     pY = numpy.zeros([nof_objects, nof_labels])
-    
+
     for o in range(nof_objects):
         for c_idx, c in enumerate(all_labels):
             if y_fake[o] == c:
                 pY[o,c_idx] = pY_true[o]
             else:
                 pY[o,c_idx] = float(1 - pY_true[o])/(nof_labels - 1)
-                    
-    return pY, label_dict
 
+    return pY, label_dict

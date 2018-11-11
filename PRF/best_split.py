@@ -77,8 +77,6 @@ def get_best_split(X, py, current_score, features_chosen_indices, max_features):
     gain = current_score
     best_attribute = 0
     best_attribute_value = 0
-    best_right = numpy.arange(1,nof_objects)
-    best_left = numpy.arange(0,1)
 
     n_visited = 0
     found_split = False
@@ -89,7 +87,15 @@ def get_best_split(X, py, current_score, features_chosen_indices, max_features):
 
         # We first sort the feature values for the selected feature. This allows us to avoid spliting the sample in each
         # iteration. Instead we can just move one object
-        feature_values = X[:,feature_index]
+        feature_values = X[:,feature_index].copy()
+        # skip objects with nan values
+        nan_values = numpy.isnan(feature_values)
+        nof_objects_skip = nan_values.sum()
+        if nof_objects_skip == nof_objects:
+            continue
+
+        feature_values[nan_values] = numpy.nanmax(feature_values) + 1
+
         x_asort = numpy.argsort(feature_values)
 
         # We calculate the impurity when all the objects are on the right node.
@@ -98,11 +104,12 @@ def get_best_split(X, py, current_score, features_chosen_indices, max_features):
         impurity_right, normalization_right, class_p_right = _gini_init(py)
         impurity_left, normalization_left, class_p_left = 0, 0, 0*class_p_right
 
-        nof_objects_right = nof_objects
+        nof_objects_itr = nof_objects - nof_objects_skip
+        nof_objects_right = nof_objects_itr
         nof_objects_left = 0
 
         # In each iteration of this loop we move object by object from the left to the right side of the loop.
-        for i in range(nof_objects):
+        for i in range(nof_objects_itr):
 
             # Update the number of objects in each side of the split
             nof_objects_left += 1
@@ -124,15 +131,11 @@ def get_best_split(X, py, current_score, features_chosen_indices, max_features):
                 # Check if this is a better gain that the current best gain
                 #print(nof_objects_right,  impurity_right, nof_objects_left,  impurity_left)
                 if gain > best_gain:
-
                     found_split = True
-                    # Get the indicies of the object that go left, and of the objects that go right
-                    right, left = x_asort[i+1:], x_asort[:i+1]
 
                     # Save the values of the best split so far
                     best_gain = gain
                     best_attribute = feature_index
                     best_attribute_value = feature_values[x_asort[i]]
-                    best_left = left
-                    best_right = right
-    return gain, best_gain, best_attribute, best_attribute_value, best_left, best_right
+
+    return  best_gain, best_attribute, best_attribute_value
