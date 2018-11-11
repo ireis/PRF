@@ -4,7 +4,7 @@
 
 clone the repository, and python setup.py install
 
-## example usage:  
+## example usage (also see PRF/examples folder):  
 from PRF import prf
 
 prf_cls = prf(n_estimators=10,  bootstrap=True, keep_proba=0.05)
