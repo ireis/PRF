@@ -7,6 +7,8 @@ clone the repository and from PRF\ run
 python setup.py install
 ```
 
+tested only on python 3
+
 ## example usage   
 ```
 from PRF import prf
