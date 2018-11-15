@@ -26,6 +26,7 @@ class DecisionTreeClassifier:
         self.use_py_leafs = use_py_leafs
         self.max_depth = max_depth
         self.keep_proba = keep_proba
+        self.is_node_arr_init = False
 
     def get_nodes(self):
 
@@ -43,6 +44,9 @@ class DecisionTreeClassifier:
         return node_list_sort
 
     def node_arr_init(self):
+
+        if self.is_node_arr_init:
+            return
 
         node_list = self.get_nodes()
 
@@ -71,6 +75,7 @@ class DecisionTreeClassifier:
         self.node_false_branch = node_false_branch
         self.node_tree_results = node_tree_results
         self.node_p_right = node_p_right
+        self.is_node_arr_init = True
 
         return
 
@@ -83,6 +88,7 @@ class DecisionTreeClassifier:
         self.n_features_ = len(X[0])
         self.n_samples_ = len(X)
         self.feature_importances_ = [0] * self.n_features_
+        self.is_node_arr_init = False
 
         pnode = numpy.ones(self.n_samples_)
         is_max = numpy.ones(self.n_samples_, dtype = int)
@@ -105,15 +111,15 @@ class DecisionTreeClassifier:
         self.tree_ = tree.fit_tree(X, pX, py_gini, py_leafs, pnode, depth, is_max, self.max_depth, self.max_features, self.feature_importances_, self.n_samples_, self.keep_proba)
 
 
-    def predict_proba(self, X, dX):
+    def predict_proba(self, X, dX, return_leafs=False):
         """
         The DecisionTreeClassifier.predict_proba() function with a similar appearance to the of sklearn
         """
         keep_proba = self.keep_proba
 
-        summed_prediction = tree.predict_all(self.node_tree_results, self.node_feature_idx, self.node_feature_th, self.node_true_branch, self.node_false_branch, self.node_p_right, X, dX, keep_proba)
+        result = tree.predict_all(self.node_tree_results, self.node_feature_idx, self.node_feature_th, self.node_true_branch, self.node_false_branch, self.node_p_right, X, dX, keep_proba, return_leafs)
 
-        return summed_prediction
+        return result
 
 
 
@@ -296,7 +302,21 @@ class RandomForestClassifier:
 
         return proba
 
-    def predict(self, X, dX=None):
+    def apply(self, X, dX=None):
+
+        X, dX = self.check_input_X(X, dX)
+
+        dX = numpy.zeros(X.shape) # TODO: return leafs with probabilities for PRF
+
+        for i, tree in enumerate(self.estimators_):
+            tree.node_arr_init()
+
+        leafs = [tree.predict_proba(X, dX, return_leafs=True)[:,0].reshape(-1,1) for tree in self.estimators_]
+        leafs = numpy.hstack(leafs).astype(int)
+
+        return leafs
+
+    def predict(self, X, dX=None, return_leafs=False):
         y_pred_inds = numpy.argmax(self.predict_proba(X, dX), axis = 1)
         y_pred = numpy.array([self.label_dict[i] for i in y_pred_inds])
         return y_pred
@@ -305,6 +325,8 @@ class RandomForestClassifier:
         y_pred = self.predict(X, dX)
         score = (y_pred == (y)).sum()/len(y)
         return score
+
+
 
     def __str__(self):
         sb = []

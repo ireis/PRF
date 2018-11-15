@@ -123,19 +123,18 @@ def fit_tree(X, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, max
 
 
 @jit(cache=cache, nopython=True)
-def predict_all(node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, node_p_right, X, dX, keep_proba):
+def predict_all(node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, node_p_right, X, dX, keep_proba, return_leafs):
 
     nof_objects = X.shape[0]
     nof_classes = len(node_tree_results[0])
-    summed_prediction_all = numpy.zeros((nof_objects, nof_classes))
+    result = numpy.zeros((nof_objects, nof_classes))
     curr_node = 0
     for i in range(nof_objects):
-        summed_prediction_all[i] = predict_single(node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, node_p_right, X[i], dX[i], curr_node, keep_proba, p_tree = 1.0, is_max = True)
-
-    return summed_prediction_all
+        result[i] = predict_single(node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, node_p_right, X[i], dX[i], curr_node, keep_proba, p_tree = 1.0, is_max = True, return_leafs=return_leafs)
+    return result
 
 @jit(cache=cache, nopython=True)
-def predict_single(node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, node_p_right, x, dx, curr_node, keep_proba, p_tree = 1.0, is_max = True):
+def predict_single(node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, node_p_right, x, dx, curr_node, keep_proba, p_tree = 1.0, is_max = True, return_leafs=False):
         """
         function classifies a single object according to the trained tree
         """
@@ -150,7 +149,10 @@ def predict_single(node_tree_results, node_feature_idx, node_feature_th, node_tr
         nof_classes = len(tree_results)
 
         if (tree_results[0] >= 0):
-            summed_prediction = tree_results * p_tree
+            if return_leafs:
+                summed_prediction = tree_results*0 + node
+            else:
+                summed_prediction = tree_results * p_tree
         else:
             summed_prediction = numpy.zeros(nof_classes)
             if is_max:
@@ -170,10 +172,10 @@ def predict_single(node_tree_results, node_feature_idx, node_feature_th, node_tr
                     is_max_false = True
 
                 if ((p_true > keep_proba) or is_max_true):
-                    summed_prediction += predict_single(node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, node_p_right, x, dx, true_branch_node, keep_proba, p_true, is_max_true)
+                    summed_prediction += predict_single(node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, node_p_right, x, dx, true_branch_node, keep_proba, p_true, is_max_true, return_leafs)
 
                 if ((p_false > keep_proba) or is_max_false):
-                    summed_prediction += predict_single(node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, node_p_right, x, dx, false_branch_node, keep_proba, p_false, is_max_false)
+                    summed_prediction += predict_single(node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, node_p_right, x, dx, false_branch_node, keep_proba, p_false, is_max_false, return_leafs)
 
             else:
                 is_max_true = False
@@ -189,9 +191,9 @@ def predict_single(node_tree_results, node_feature_idx, node_feature_th, node_tr
                 p_false = p_tree * (1 - p_split)
 
                 if p_true > keep_proba:
-                    summed_prediction += predict_single(node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, node_p_right, x, dx, true_branch_node, keep_proba, p_true, is_max_true)
+                    summed_prediction += predict_single(node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, node_p_right, x, dx, true_branch_node, keep_proba, p_true, is_max_true, return_leafs)
 
                 if p_false > keep_proba:
-                    summed_prediction += predict_single(node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, node_p_right, x, dx, false_branch_node, keep_proba, p_false, is_max_false)
+                    summed_prediction += predict_single(node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, node_p_right, x, dx, false_branch_node, keep_proba, p_false, is_max_false, return_leafs)
 
         return summed_prediction
