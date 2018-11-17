@@ -116,7 +116,7 @@ def get_synthetic_data(X, dX, py, py_remove, pnode, is_max):
 
 
 
-def fit_tree(X, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, max_features, feature_importances, tree_n_samples, keep_proba, unsupervised=False, new_syn_data_frac=0.5):
+def fit_tree(X, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, max_features, feature_importances, tree_n_samples, keep_proba, unsupervised=False, new_syn_data_frac=0):
     """
     function grows a recursive disicion tree according to the objects X and their classifications y
     """
