@@ -65,6 +65,9 @@ def _gini_update(normalization, class_p_arr, py):
 
     return impurity, normalization, class_p_arr
 
+@jit(cache=True, nopython=True)
+def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
+    return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
 @jit(cache=True, nopython=True)
 def get_best_split(X, py, current_score, features_chosen_indices, max_features):
@@ -97,6 +100,7 @@ def get_best_split(X, py, current_score, features_chosen_indices, max_features):
         feature_values[nan_values] = numpy.nanmax(feature_values) + 1
 
         x_asort = numpy.argsort(feature_values)
+        x_sorted = feature_values[x_asort]
 
         # We calculate the impurity when all the objects are on the right node.
         # in each iteration of loop over possible splits, we just update this value by moving one object to the other side of the
@@ -109,33 +113,45 @@ def get_best_split(X, py, current_score, features_chosen_indices, max_features):
         nof_objects_left = 0
 
         # In each iteration of this loop we move object by object from the left to the right side of the loop.
-        for i in range(nof_objects_itr):
+        nof_objects_left += 1
+        nof_objects_right -= 1
+        while (nof_objects_right>0) and (nof_objects_left>0):
+        #for i in range(nof_objects_itr):
+
+            move_idx = nof_objects_left - 1
+            # Update the impurities on both sides
+            impurity_right, normalization_right, class_p_right  = _gini_update( normalization_right,  class_p_right, -py[x_asort[move_idx]])
+            impurity_left, normalization_left, class_p_left  = _gini_update( normalization_left, class_p_left, py[x_asort[move_idx]])
+
+            # if we have the same values for different objects we need to move all of them
+
+            while isclose(x_sorted[move_idx],x_sorted[move_idx + 1]) and (nof_objects_right > 1):
+                nof_objects_left += 1
+                nof_objects_right -= 1
+                move_idx = nof_objects_left - 1
+                # Update the impurities on both sides
+                impurity_right, normalization_right, class_p_right  = _gini_update( normalization_right,  class_p_right, -py[x_asort[move_idx]])
+                impurity_left, normalization_left, class_p_left  = _gini_update( normalization_left, class_p_left, py[x_asort[move_idx]])
+
+
+            # Calculate the gain for the split
+            normalization = normalization_right + normalization_left
+            p_right = normalization_right / normalization
+            p_left = normalization_left / normalization
+            gain = current_score - p_right*impurity_right - p_left*impurity_left
+
+            # Check if this is a better gain that the current best gain
+            #print(nof_objects_right,  impurity_right, nof_objects_left,  impurity_left)
+            if gain > best_gain:
+                found_split = True
+
+                # Save the values of the best split so far
+                best_gain = gain
+                best_attribute = feature_index
+                best_attribute_value = feature_values[x_asort[move_idx]]
 
             # Update the number of objects in each side of the split
             nof_objects_left += 1
             nof_objects_right -= 1
-
-            # We only need to calculate the impurity if both sides are not empty (which is a useless split)
-            if nof_objects_right>0 and nof_objects_left>0:
-
-                # Update the impurities on both sides
-                impurity_right, normalization_right, class_p_right  = _gini_update( normalization_right,  class_p_right, -py[x_asort[i]])
-                impurity_left, normalization_left, class_p_left  = _gini_update( normalization_left, class_p_left, py[x_asort[i]])
-
-                # Calculate the gain for the split
-                normalization = normalization_right + normalization_left
-                p_right = normalization_right / normalization
-                p_left = normalization_left / normalization
-                gain = current_score - p_right*impurity_right - p_left*impurity_left
-
-                # Check if this is a better gain that the current best gain
-                #print(nof_objects_right,  impurity_right, nof_objects_left,  impurity_left)
-                if gain > best_gain:
-                    found_split = True
-
-                    # Save the values of the best split so far
-                    best_gain = gain
-                    best_attribute = feature_index
-                    best_attribute_value = feature_values[x_asort[i]]
 
     return  best_gain, best_attribute, best_attribute_value
