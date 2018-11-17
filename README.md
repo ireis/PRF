@@ -1,4 +1,9 @@
-# PRF
+# Probabilistic Random Forest (PRF)
+
+The PRF is a modification the long-established Random Forest (RF) algorithm that takes into account uncertainties in the measurements (i.e., features) as well as in the assigned classes (i.e., labels). To do so, the Probabilistic Random Forest (PRF) algorithm treats the features and labels as probability distribution functions, rather than deterministic quantities. The details of the algorithm along with comparison to the original RF are described in the paper:
+
+[Probabilistic Random Forest: A machine learning algorithm for noisy datasets](https://arxiv.org/abs/1811.05994v1)
+
 
 ## installation:
 
@@ -6,6 +11,8 @@ clone the repository and from PRF\ run
 ```
 python setup.py install
 ```
+
+tested only on python 3
 
 ## example usage   
 ```
