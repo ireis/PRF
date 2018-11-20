@@ -12,7 +12,7 @@ clone the repository and from PRF\ run
 python setup.py install
 ```
 
-tested only on python 3
+Tested only on python 3, please email ```itamarreis@mail.tau.ac.il``` if you encounter any issues with installation or running the code.
 
 ## example usage   
 ```
