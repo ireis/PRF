@@ -19,7 +19,7 @@ class DecisionTreeClassifier:
     """
     This the the decision tree classifier class.
     """
-    def __init__(self, criterion='gini', max_features=None, use_py_gini = True, use_py_leafs = True, max_depth = None, keep_proba = 0.05):
+    def __init__(self, criterion='gini', max_features=None, use_py_gini = True, use_py_leafs = True, max_depth = None, keep_proba = 0.05, unsupervised=False, new_syn_data_frac=0):
         self.criterion = criterion
         self.max_features = max_features
         self.use_py_gini = use_py_gini
@@ -27,6 +27,8 @@ class DecisionTreeClassifier:
         self.max_depth = max_depth
         self.keep_proba = keep_proba
         self.is_node_arr_init = False
+        self.unsupervised = unsupervised
+        self.new_syn_data_frac = new_syn_data_frac
 
     def get_nodes(self):
 
@@ -108,7 +110,7 @@ class DecisionTreeClassifier:
             py_leafs = py_flat
         depth = 0
 
-        self.tree_ = tree.fit_tree(X, pX, py_gini, py_leafs, pnode, depth, is_max, self.max_depth, self.max_features, self.feature_importances_, self.n_samples_, self.keep_proba)
+        self.tree_ = tree.fit_tree(X, pX, py_gini, py_leafs, pnode, depth, is_max, self.max_depth, self.max_features, self.feature_importances_, self.n_samples_, self.keep_proba, self.unsupervised, self.new_syn_data_frac)
 
 
     def predict_proba(self, X, dX, return_leafs=False):
@@ -130,7 +132,7 @@ class DecisionTreeClassifier:
 ############################################################
 
 class RandomForestClassifier:
-    def __init__(self, n_estimators=10, criterion='gini', max_features='auto', use_py_gini = True, use_py_leafs = True, max_depth = None, keep_proba = 0.05, bootstrap=True):
+    def __init__(self, n_estimators=10, criterion='gini', max_features='auto', use_py_gini = True, use_py_leafs = True, max_depth = None, keep_proba = 0.05, bootstrap=True, new_syn_data_frac=0):
         self.n_estimators_ = n_estimators
         self.criterion = criterion
         self.max_features = max_features
@@ -140,6 +142,7 @@ class RandomForestClassifier:
         self.max_depth = max_depth
         self.keep_proba = keep_proba
         self.bootstrap = bootstrap
+        self.new_syn_data_frac = new_syn_data_frac
 
     def check_input_X(self, X, dX):
 
@@ -175,7 +178,9 @@ class RandomForestClassifier:
                               use_py_gini = self.use_py_gini,
                               use_py_leafs = self.use_py_leafs,
                               max_depth = self.max_depth,
-                              keep_proba = self.keep_proba)
+                              keep_proba = self.keep_proba,
+                              unsupervised = self.unsupervised,
+                              new_syn_data_frac = self.new_syn_data_frac)
 
         if self.bootstrap:
             X_chosen, pX_chosen, py_chosen = self._choose_objects(X, pX, py)
@@ -190,7 +195,9 @@ class RandomForestClassifier:
         """
         The RandomForestClassifier.fit() function with a similar appearance to that of sklearn
         """
-        self.n_features_ = len(X[0])
+        n_featuers = X.shape[1]
+        n_objects = X.shape[0]
+        self.n_features_ = n_featuers
         self.feature_importances_ = numpy.zeros(self.n_features_)
 
         if self.max_features == 'auto' or self.max_features == 'sqrt':
@@ -205,9 +212,13 @@ class RandomForestClassifier:
             self.max_features_num = self.n_features_
 
         # self.classes_ = list(numpy.sort(numpy.unique(y)))
-
+        self.unsupervised = False
         if ((py is None) and (y is None)):
-            raise ValueError('At least one of {y, py} must be given')
+            self.unsupervised = True
+            py = numpy.zeros([n_objects,2])
+            py[:,0] = 1 #Class 'real'
+            self.n_classes_ = 2
+            self.label_dict = {i:i for i in range(self.n_classes_)}
         elif py is None:
             py, label_dict = m.get_pY(numpy.ones(len(y)), y)
             self.n_classes_ = py.shape[1]
@@ -330,7 +341,7 @@ class RandomForestClassifier:
 
     def __str__(self):
         sb = []
-        do_not_print = ['estimators_', 'use_py_gini', 'use_py_leafs', 'label_dict']
+        do_not_print = ['estimators_', 'use_py_gini', 'use_py_leafs', 'label_dict', 'new_syn_data_frac']
         for key in self.__dict__:
             if key not in do_not_print:
                 sb.append("{key}='{value}'".format(key=key, value=self.__dict__[key]))
