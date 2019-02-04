@@ -30,8 +30,7 @@ class DecisionTreeClassifier:
         self.is_node_arr_init = False
         self.unsupervised = unsupervised
         self.new_syn_data_frac = new_syn_data_frac
-        self.X_decomp=X_decomp, 
-        self.decomp_comp=decomp_comp
+
 
     def get_nodes(self):
 
@@ -84,7 +83,7 @@ class DecisionTreeClassifier:
 
         return
 
-    def fit(self, X, pX, py, tree_features = None):
+    def fit(self, X, pX, py, tree_features = None, X_decomp=None, decomp_comp=None):
         """
         the DecisionTreeClassifier.fit() function with a similar appearance to that of sklearn
         """
@@ -119,8 +118,8 @@ class DecisionTreeClassifier:
         
         #if self.max_features > X.shape[1]:
         #    self.max_features = int(numpy.sqrt(X.shape[1]))
-
-        self.tree_ = tree.fit_tree(X, pX, py_gini, py_leafs, pnode, depth, is_max, self.max_depth, self.max_features, self.feature_importances_, self.n_samples_, self.keep_proba, self.unsupervised, self.new_syn_data_frac, self.X_decomp, self.decomp_comp)
+        print(X_decomp is None)
+        self.tree_ = tree.fit_tree(X, pX, py_gini, py_leafs, pnode, depth, is_max, self.max_depth, self.max_features, self.feature_importances_, self.n_samples_, self.keep_proba, self.unsupervised, self.new_syn_data_frac, X_decomp=X_decomp, decomp_comp=decomp_comp)
 
 
     def predict_proba(self, X, dX, return_leafs=False, X_ext=None):
@@ -172,7 +171,7 @@ class RandomForestClassifier:
         X[numpy.isinf(dX)] = numpy.nan
         return X, dX
 
-    def _choose_objects(self, X, pX, py, X_ext=None):
+    def _choose_objects(self, X, pX, py, X_ext=None, X_decomp=None, decomp_comp=None):
         """
         function builds a sample of the same size as the input data, but chooses the objects with replacement
         according to the given probability matrix
@@ -184,6 +183,7 @@ class RandomForestClassifier:
             nof_objects_tree = self.n_bootstrap
         random_objects = numpy.random.choice(objects_indices, nof_objects_tree, replace=True)
         X_chosen = X[random_objects, :]
+        X_decomp_chosen = X_decomp[random_objects, :]
         pX_chosen = pX[random_objects, :]
         py_chosen = py[random_objects, :]
         if not X_ext is None:
@@ -194,6 +194,7 @@ class RandomForestClassifier:
         if not self.n_features_tree is None:
             random_features = numpy.random.choice(features_indices, self.n_features_tree, replace=True)
             X_chosen = X_chosen[:, random_features]
+            decomp_comp_chosen = decomp_comp[:, random_features]
             pX_chosen = pX_chosen[:, random_features]
         else:
             random_features = features_indices
@@ -203,7 +204,7 @@ class RandomForestClassifier:
             pX_chosen = numpy.hstack([numpy.zeros(X_ext_chosen.shape), pX_chosen])
             
 
-        return X_chosen, pX_chosen, py_chosen, random_features
+        return X_chosen, pX_chosen, py_chosen, X_decomp_chosen, decomp_comp_chosen, random_features
 
 
 
@@ -217,15 +218,13 @@ class RandomForestClassifier:
                               max_depth = self.max_depth,
                               keep_proba = self.keep_proba,
                               unsupervised = self.unsupervised,
-                              new_syn_data_frac = self.new_syn_data_frac,
-                              X_decomp=X_decomp, 
-                              decomp_comp=decomp_comp)
+                              new_syn_data_frac = self.new_syn_data_frac)
 
         if self.bootstrap:
-            X_chosen, pX_chosen, py_chosen, tree_features = self._choose_objects(X, pX, py, X_ext)
-            tree.fit(X_chosen, pX_chosen, py_chosen, tree_features)
+            X_chosen, pX_chosen, py_chosen, X_decomp_chosen, decomp_comp_chosen, tree_features = self._choose_objects(X, pX, py, X_ext, X_decomp=X_decomp, decomp_comp=decomp_comp)
+            tree.fit(X_chosen, pX_chosen, py_chosen, tree_features, X_decomp=X_decomp_chosen, decomp_comp=decomp_comp_chosen)
         else:
-            tree.fit(X, pX, py)
+            tree.fit(X, pX, py, X_decomp=X_decomp, decomp_comp=decomp_comp)
 
         return tree
 
@@ -272,9 +271,9 @@ class RandomForestClassifier:
 
         X, dX = self.check_input_X(X, dX)
 
-        #tree_list = [self._fit_single_tree(X, dX, py) for i in range(self.n_estimators_)]
-        tree_list = Parallel(n_jobs=-1, verbose = 0)(delayed(self._fit_single_tree)
-                                                  (X, dX, py, X_ext=X_ext, X_decomp=X_decomp, decomp_comp=decomp_comp)                                                              for i in range(self.n_estimators_))
+        tree_list = [self._fit_single_tree(X, dX, py, X_ext=X_ext, X_decomp=X_decomp, decomp_comp=decomp_comp) for i in range(self.n_estimators_)]
+        #tree_list = Parallel(n_jobs=-1, verbose = 0)(delayed(self._fit_single_tree)
+        #                                          (X, dX, py, X_ext=X_ext, X_decomp=X_decomp, decomp_comp=decomp_comp)                   #                                           for i in range(self.n_estimators_))
 
         for tree in tree_list:
             self.estimators_.append(tree)

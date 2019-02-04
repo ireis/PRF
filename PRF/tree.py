@@ -62,7 +62,9 @@ def decomp_synthetic_data(X, X_decomp, decomp_comps):
 
     for c in range(nof_comps):
         all_comps = X_decomp[:, c]
-        synthetic_X_dcomp[:, c] += numpy.random.choice(all_comps, nof_objects)
+        synthetic_X_dcomp[:, c] = numpy.random.choice(all_comps, nof_objects)
+        
+        
     synthetic_X = numpy.dot(synthetic_X_dcomp , decomp_comps)
     
 
@@ -113,6 +115,10 @@ def get_synthetic_data(X, dX, py, py_remove, pnode, is_max, X_decomp=None, decom
     X_real = X[real_inds]
     dX_real = dX[real_inds]
     py_real = py[real_inds]
+    if not X_decomp is None:
+        X_decomp_real = X_decomp[real_inds]
+    else:
+        X_decomp_real = None
     pnode_real = pnode[real_inds]
     is_max_real = is_max[real_inds]
     n_real = X_real.shape[0]
@@ -122,7 +128,7 @@ def get_synthetic_data(X, dX, py, py_remove, pnode, is_max, X_decomp=None, decom
     if X_decomp is None:
         X_syn  = default_synthetic_data(X_real)
     else:
-        X_syn  = decomp_synthetic_data(X_real, X_decomp, decomp_comp)
+        X_syn  = decomp_synthetic_data(X_real, X_decomp_real, decomp_comp)
     dX_syn = default_synthetic_data(dX_real)
 
     X_new = numpy.vstack([X_real,X_syn])
@@ -135,11 +141,17 @@ def get_synthetic_data(X, dX, py, py_remove, pnode, is_max, X_decomp=None, decom
     pnode_new = numpy.zeros([X_new.shape[0]])
     pnode_new[:n_real] = pnode_real
     pnode_new[n_real:] = pnode_real
-
+    
+    if not X_decomp is None:
+        X_decomp_new = numpy.zeros([X_new.shape[0],decomp_comp.shape[0]])
+        X_decomp_new[:n_real] = X_decomp_real
+        X_decomp_new[n_real:] = X_decomp_real
+    else:
+        X_decomp_new = None
+    
     is_max_new = numpy.concatenate([is_max_real, is_max_real])
 
-
-    return X_new, dX_new, py_new, py_new, pnode_new, is_max_new
+    return X_new, dX_new, py_new, py_new, pnode_new, is_max_new, X_decomp_new
 
 
 
@@ -160,7 +172,6 @@ def fit_tree(X, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, max
     """
     function grows a recursive disicion tree according to the objects X and their classifications y
     """
-
     if len(X) == 0:
         print('Warning: empty node')
         return _tree()
@@ -178,7 +189,7 @@ def fit_tree(X, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, max
 
         if new_syn_data:
             #print('before:', X.shape, dX.shape, py_gini.shape, py_leafs.shape, pnode.shape, is_max.shape)
-            X, dX, py_gini, py_leafs, pnode, is_max = get_synthetic_data(X, dX, py_gini, py_leafs, pnode, is_max, X_decomp, decomp_comp)
+            X, dX, py_gini, py_leafs, pnode, is_max, X_decomp = get_synthetic_data(X, dX, py_gini, py_leafs, pnode, is_max, X_decomp, decomp_comp)
             #print('after:', X.shape, dX.shape, py_gini.shape, py_leafs.shape, pnode.shape, is_max.shape)
             n_objects_node = X.shape[0]
 
@@ -224,8 +235,8 @@ def fit_tree(X, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, max
                     del(X_decomp)
                 # go to the next steps of the recursive process
                 depth = depth + 1
-                right_branch = fit_tree(X_right, dX_right, py_right, py_leafs_right, pnode_right, depth, is_max_right, tree_max_depth, max_features, feature_importances, tree_n_samples, keep_proba, unsupervised, new_syn_data_frac, X_decomp_right, decomp_comp)
-                left_branch  = fit_tree(X_left,  dX_left,  py_left,  py_leafs_left , pnode_left, depth, is_max_left, tree_max_depth, max_features, feature_importances, tree_n_samples, keep_proba, unsupervised, new_syn_data_frac, py_leafs_left, decomp_comp)
+                right_branch = fit_tree(X_right, dX_right, py_right, py_leafs_right, pnode_right, depth, is_max_right, tree_max_depth, max_features, feature_importances, tree_n_samples, keep_proba, unsupervised, new_syn_data_frac, X_decomp=X_decomp_right, decomp_comp=decomp_comp)
+                left_branch  = fit_tree(X_left,  dX_left,  py_left,  py_leafs_left , pnode_left, depth, is_max_left, tree_max_depth, max_features, feature_importances, tree_n_samples, keep_proba, unsupervised, new_syn_data_frac, X_decomp = X_decomp_left, decomp_comp=decomp_comp)
 
                 return _tree(feature_index=best_attribute, feature_threshold=best_attribute_value, true_branch=right_branch, false_branch=left_branch, p_right=pnode_right_tot)
 
