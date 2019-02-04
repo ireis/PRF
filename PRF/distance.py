@@ -1,19 +1,19 @@
 import numpy
 from joblib import Parallel, delayed
-from numba import jit
+from numba import njit, jit
 from collections import Counter
 
-def is_good_vec(tree, X):
+def is_good_vec(tree, X,):
     """
     """
     is_good = (tree.predict_proba(X, numpy.zeros(X.shape))[:, 0] > 0.5)
     return  is_good
 
 
-def is_good_matrix_get(forest, X):
+def is_good_matrix_get(forest, X,):
     #is_good_matrix = Parallel(n_jobs=-1, verbose=0)(delayed(is_good_vec)
     #                                                (tree, X) for tree in forest.estimators_)
-    is_good_matrix = [is_good_vec(tree,X) for tree in forest.estimators_]
+    is_good_matrix = [is_good_vec(tree,X,) for tree in forest.estimators_]
     is_good_matrix = numpy.vstack(is_good_matrix)
     is_good_matrix = is_good_matrix.T
 
@@ -90,7 +90,7 @@ def rf_distance_matrix(X, n_trees, **kwargs):
 
 
 
-@jit
+@njit
 def build_distance_matrix_slow(leafs, is_good, fe):
 
     start = fe[0]
@@ -98,7 +98,7 @@ def build_distance_matrix_slow(leafs, is_good, fe):
 
     obs_num = leafs.shape[0]
     tree_num = leafs.shape[1]
-    dis_mat = numpy.ones((end - start,obs_num),dtype = 'f2')
+    dis_mat = numpy.ones((end - start,obs_num))
 
     for i in range(start,end):
         jstart = i
@@ -119,7 +119,7 @@ def build_distance_matrix_slow(leafs, is_good, fe):
 
     return dis_mat
 
-@jit
+@njit
 def distance_mat_fill(dis_mat):
 
 
@@ -288,3 +288,32 @@ def predict_urf(forest, X, y):
     score, pred = nn_classification_score(nn_list, y)
     print('Score:', score)
     return pred
+
+def leafs_to_dmat(rf, rf_leafs, X, ):
+    
+    try:
+        objnum = X.shape[0]
+        Xs = X
+    except:
+        
+        Xs = X.copy()
+        X = numpy.hstack(Xs)
+        objnum = X.shape[0]
+    
+    csize = 10
+    start = numpy.arange(1 + int(objnum / csize)) * csize
+    end = start + csize
+    fe = numpy.vstack([start, end]).T
+    fe.shape
+    fe[-1][1] = objnum
+    
+    #is_good = is_good_matrix_get(rf, X, )
+    is_good = numpy.ones(rf_leafs.shape)
+
+    distance_matrix = Parallel(n_jobs=-1)(delayed(build_distance_matrix_slow)
+                                          (rf_leafs, is_good, se)          for se in fe)
+    distance_matrix = numpy.vstack(distance_matrix)
+
+    distance_matrix = distance_mat_fill(distance_matrix)
+    
+    return distance_matrix
