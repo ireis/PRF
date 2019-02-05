@@ -118,7 +118,7 @@ class DecisionTreeClassifier:
         
         #if self.max_features > X.shape[1]:
         #    self.max_features = int(numpy.sqrt(X.shape[1]))
-        print(X_decomp is None)
+
         self.tree_ = tree.fit_tree(X, pX, py_gini, py_leafs, pnode, depth, is_max, self.max_depth, self.max_features, self.feature_importances_, self.n_samples_, self.keep_proba, self.unsupervised, self.new_syn_data_frac, X_decomp=X_decomp, decomp_comp=decomp_comp)
 
 
@@ -271,9 +271,9 @@ class RandomForestClassifier:
 
         X, dX = self.check_input_X(X, dX)
 
-        tree_list = [self._fit_single_tree(X, dX, py, X_ext=X_ext, X_decomp=X_decomp, decomp_comp=decomp_comp) for i in range(self.n_estimators_)]
-        #tree_list = Parallel(n_jobs=-1, verbose = 0)(delayed(self._fit_single_tree)
-        #                                          (X, dX, py, X_ext=X_ext, X_decomp=X_decomp, decomp_comp=decomp_comp)                   #                                           for i in range(self.n_estimators_))
+       # tree_list = [self._fit_single_tree(X, dX, py, X_ext=X_ext, X_decomp=X_decomp, decomp_comp=decomp_comp) for i in range(self.n_estimators_)]
+        tree_list = Parallel(n_jobs=-1, verbose = 0)(delayed(self._fit_single_tree)
+                                                  (X, dX, py, X_ext=X_ext, X_decomp=X_decomp, decomp_comp=decomp_comp)                                                              for i in range(self.n_estimators_))
 
         for tree in tree_list:
             self.estimators_.append(tree)
