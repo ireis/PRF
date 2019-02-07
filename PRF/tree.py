@@ -1,5 +1,5 @@
 import numpy
-from numba import jit, jitclass
+from numba import njit, prange
 
 from . import best_split
 from . import misc_functions as m
@@ -58,14 +58,14 @@ def decomp_synthetic_data(X, X_decomp, decomp_comps):
 
     nof_features = X.shape[1]
     nof_objects = X.shape[0]
-    nof_comps = decomp_comps.shape[0]
+    nof_comps = decomp_comps.shape[0] - 1
 
     for c in range(nof_comps):
         all_comps = X_decomp[:, c]
         synthetic_X_dcomp[:, c] = numpy.random.choice(all_comps, nof_objects)
         
         
-    synthetic_X = numpy.dot(synthetic_X_dcomp , decomp_comps)
+    synthetic_X = numpy.dot(synthetic_X_dcomp , decomp_comps[1:]) + decomp_comps[0]
     
 
     return synthetic_X
@@ -143,7 +143,7 @@ def get_synthetic_data(X, dX, py, py_remove, pnode, is_max, X_decomp=None, decom
     pnode_new[n_real:] = pnode_real
     
     if not X_decomp is None:
-        X_decomp_new = numpy.zeros([X_new.shape[0],decomp_comp.shape[0]])
+        X_decomp_new = numpy.zeros([X_new.shape[0],X_decomp.shape[1]])
         X_decomp_new[:n_real] = X_decomp_real
         X_decomp_new[n_real:] = X_decomp_real
     else:
@@ -183,7 +183,7 @@ def fit_tree(X, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, max
         new_syn_data = False
         if depth == 0:
             new_syn_data = True
-        elif (n_objects_node > 50):
+        elif (n_objects_node > 1000):
             if (numpy.random.rand() < new_syn_data_frac):
                 new_syn_data = True
 
@@ -204,11 +204,15 @@ def fit_tree(X, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, max
         scaled_py_gini = numpy.multiply(py_gini, pnode[:,numpy.newaxis])
 
         current_score, normalization, class_p_arr = best_split._gini_init(scaled_py_gini)
-        features_chosen_indices = m.choose_features(n_features, max_features)
-        best_gain, best_attribute, best_attribute_value = best_split.get_best_split(X, scaled_py_gini,  current_score, features_chosen_indices, max_features)
+        if depth == 0:
+            features_chosen_indices = m.choose_features(n_features, max_features)            
+            best_gain, best_attribute, best_attribute_value = best_split.get_zero_depth_best_split(X, scaled_py_gini,  current_score, features_chosen_indices, max_features)
+        else:
+            features_chosen_indices = m.choose_features(n_features, max_features)
+            best_gain, best_attribute, best_attribute_value = best_split.get_best_split(X, scaled_py_gini,  current_score, features_chosen_indices, max_features)
 
         # Caclculate split probabilities for each object
-        if best_gain > 0:
+        if (best_gain > 0) or (depth == 0):
             p_split_right = m.split_probability_all(X[:,best_attribute], dX[:,best_attribute], best_attribute_value)
             p_split_left = 1 - p_split_right
             pnode_right, pnode_left, best_right, best_left, is_max_right, is_max_left, pnode_right_tot = m.get_split_objects(pnode, p_split_right, p_split_left, is_max, n_objects_node, keep_proba)
@@ -234,6 +238,9 @@ def fit_tree(X, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, max
                 if not X_decomp is None:
                     X_decomp_right, X_decomp_left = m.pull_values(X_decomp, best_right, best_left)
                     del(X_decomp)
+                else:
+                    X_decomp_right = None
+                    X_decomp_left = None
                 # go to the next steps of the recursive process
                 depth = depth + 1
                 right_branch = fit_tree(X_right, dX_right, py_right, py_leafs_right, pnode_right, depth, is_max_right, tree_max_depth, max_features, feature_importances, tree_n_samples, keep_proba, unsupervised, new_syn_data_frac, X_decomp=X_decomp_right, decomp_comp=decomp_comp)
@@ -263,18 +270,20 @@ def fit_tree(X, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, max
 
 
 
-@jit(cache=cache, nopython=True)
+#@jit(cache=cache, nopython=True)
+@njit(parallel = True)
 def predict_all(node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, node_p_right, X, dX, keep_proba, return_leafs):
 
     nof_objects = X.shape[0]
     nof_classes = len(node_tree_results[0])
     result = numpy.zeros((nof_objects, nof_classes))
     curr_node = 0
-    for i in range(nof_objects):
+    for i in prange(nof_objects):
         result[i] = predict_single(node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, node_p_right, X[i], dX[i], curr_node, keep_proba, p_tree = 1.0, is_max = True, return_leafs=return_leafs)
     return result
 
-@jit(cache=cache, nopython=True)
+#@jit(cache=cache, nopython=True)
+@njit
 def predict_single(node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, node_p_right, x, dx, curr_node, keep_proba, p_tree = 1.0, is_max = True, return_leafs=False):
         """
         function classifies a single object according to the trained tree

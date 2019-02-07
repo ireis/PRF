@@ -116,8 +116,8 @@ class DecisionTreeClassifier:
             py_leafs = py_flat
         depth = 0
         
-        #if self.max_features > X.shape[1]:
-        #    self.max_features = int(numpy.sqrt(X.shape[1]))
+        if self.max_features >= X.shape[1]:
+            self.max_features = int(numpy.sqrt(len(self.features)))
 
         self.tree_ = tree.fit_tree(X, pX, py_gini, py_leafs, pnode, depth, is_max, self.max_depth, self.max_features, self.feature_importances_, self.n_samples_, self.keep_proba, self.unsupervised, self.new_syn_data_frac, X_decomp=X_decomp, decomp_comp=decomp_comp)
 
@@ -134,7 +134,7 @@ class DecisionTreeClassifier:
             X_pred = X[:,self.features]
             pX_pred = dX[:,self.features]
             
-        
+        #print(X_pred.shape, pX_pred.shape)
         result = tree.predict_all(self.node_tree_results, self.node_feature_idx, self.node_feature_th, self.node_true_branch, self.node_false_branch, self.node_p_right, X_pred, pX_pred, keep_proba, return_leafs)
 
         return result
@@ -183,7 +183,10 @@ class RandomForestClassifier:
             nof_objects_tree = self.n_bootstrap
         random_objects = numpy.random.choice(objects_indices, nof_objects_tree, replace=True)
         X_chosen = X[random_objects, :]
-        X_decomp_chosen = X_decomp[random_objects, :]
+        if not X_decomp is None:
+            X_decomp_chosen = X_decomp[random_objects, :]
+        else:
+            X_decomp_chosen = None
         pX_chosen = pX[random_objects, :]
         py_chosen = py[random_objects, :]
         if not X_ext is None:
@@ -194,9 +197,16 @@ class RandomForestClassifier:
         if not self.n_features_tree is None:
             random_features = numpy.random.choice(features_indices, self.n_features_tree, replace=True)
             X_chosen = X_chosen[:, random_features]
-            decomp_comp_chosen = decomp_comp[:, random_features]
+            if not decomp_comp is None:
+                decomp_comp_chosen = decomp_comp[:, random_features]
+            else:
+                decomp_comp_chosen = None
             pX_chosen = pX_chosen[:, random_features]
         else:
+            if not decomp_comp is None:
+                decomp_comp_chosen = decomp_comp[:, features_indices]
+            else:
+                decomp_comp_chosen = None
             random_features = features_indices
 
         if not X_ext is None:

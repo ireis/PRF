@@ -1,5 +1,5 @@
 import numpy
-from numba import jit, jitclass
+from numba import njit
 from scipy.stats import norm
 
 cache = True
@@ -18,7 +18,7 @@ X_GAUS = numpy.arange(-N_SIGMA,N_SIGMA,0.1)
 GAUS = numpy.array(norm(0,1).cdf(X_GAUS))
 GAUS = numpy.append(GAUS, 1)
 
-@jit(cache=cache, nopython=True)
+@njit
 def split_probability(value, delta, threshold):
     """
     Calculate split probability for a single object
@@ -50,7 +50,7 @@ def split_probability(value, delta, threshold):
     return 1-split_proba
 
 
-@jit(cache=cache, nopython=True)
+@njit
 def split_probability_all(values, deltas, threshold):
     """
     Calculate split probabilities for all rows in values
@@ -63,7 +63,7 @@ def split_probability_all(values, deltas, threshold):
     return ps
 
 
-@jit(cache=cache, nopython=True)
+@njit
 def return_class_probas(pnode, pY):
     """
     The leaf probabilities for each class
@@ -92,7 +92,7 @@ def return_class_probas(pnode, pY):
 
 
 
-@jit(cache=True, nopython=True)
+@njit
 def get_split_objects(pnode, p_split_right, p_split_left, is_max, n_objects_node, keep_proba):
 
     pnode_right = pnode*p_split_right
@@ -155,7 +155,7 @@ def get_split_objects(pnode, p_split_right, p_split_left, is_max, n_objects_node
     return pnode_right, pnode_left, best_right[1:], best_left[1:], is_max_right[1:], is_max_left[1:], p_split_right_batch
 
 
-#@jit(cache=True, nopython=True)
+#@njit
 def choose_features(nof_features, max_features):
     """
     function randomly selects the features that will be examined for each split
@@ -168,7 +168,7 @@ def choose_features(nof_features, max_features):
     #print(features_chosen)
     return features_chosen
 
-@jit(cache=True, nopython=True)
+@njit
 def pull_values(A, right, left):
     """
     Splits an array A to two

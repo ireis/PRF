@@ -1,5 +1,5 @@
 import numpy
-from numba import jit, jitclass
+from numba import njit
 
 from .  import misc_functions as m
 
@@ -13,7 +13,7 @@ from .  import misc_functions as m
 ############################################################
 
 
-@jit(cache=True, nopython=True)
+@njit
 def _gini_init(py):
 
     nof_classes = py.shape[1]
@@ -42,7 +42,7 @@ def _gini_init(py):
 
     return impurity, normalization, class_p_arr
 
-@jit(cache=True, nopython=True)
+@njit
 def _gini_update(normalization, class_p_arr, py):
 
     nof_classes = len(py)
@@ -65,11 +65,11 @@ def _gini_update(normalization, class_p_arr, py):
 
     return impurity, normalization, class_p_arr
 
-@jit(cache=True, nopython=True)
+@njit
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-@jit(cache=True, nopython=True)
+@njit
 def get_best_split(X, py, current_score, features_chosen_indices, max_features):
 
     n_features = len(features_chosen_indices)
@@ -155,3 +155,21 @@ def get_best_split(X, py, current_score, features_chosen_indices, max_features):
             nof_objects_right -= 1
 
     return  best_gain, best_attribute, best_attribute_value
+
+
+
+
+
+
+
+@njit
+def get_zero_depth_best_split(X, py, current_score, features_chosen_indices, max_features):
+
+    best_gain = 0
+    best_attribute = features_chosen_indices[0]
+    
+    feature_values = X[:,best_attribute].copy()
+    best_attribute_value = numpy.nanmedian(feature_values)
+    
+    return  best_gain, best_attribute, best_attribute_value
+

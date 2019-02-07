@@ -91,7 +91,7 @@ def rf_distance_matrix(X, n_trees, **kwargs):
 
 
 @njit
-def build_distance_matrix_slow(leafs, is_good, fe):
+def build_distance_matrix_slow(leafs, is_good, fe, div_by='good'):
 
     start = fe[0]
     end = fe[1]
@@ -113,11 +113,16 @@ def build_distance_matrix_slow(leafs, is_good, fe):
             if good_trees == 0:
                 dis = 1
             else:
-                dis = 1 - float(same_leaf) / good_trees
+                if div_by == 'good':
+                    dis = 1 - float(same_leaf) / good_trees
+                else:
+                    dis = 1 - float(same_leaf) / tree_num
 
             dis_mat[i - start][j] = dis
 
     return dis_mat
+
+
 
 @njit
 def distance_mat_fill(dis_mat):
@@ -289,7 +294,7 @@ def predict_urf(forest, X, y):
     print('Score:', score)
     return pred
 
-def leafs_to_dmat(rf, rf_leafs, X, ):
+def leafs_to_dmat(rf, rf_leafs, X, div_by='good'):
     
     try:
         objnum = X.shape[0]
@@ -311,7 +316,7 @@ def leafs_to_dmat(rf, rf_leafs, X, ):
     is_good = numpy.ones(rf_leafs.shape)
 
     distance_matrix = Parallel(n_jobs=-1)(delayed(build_distance_matrix_slow)
-                                          (rf_leafs, is_good, se)          for se in fe)
+                                          (rf_leafs, is_good, se, div_by)          for se in fe)
     distance_matrix = numpy.vstack(distance_matrix)
 
     distance_matrix = distance_mat_fill(distance_matrix)
