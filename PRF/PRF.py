@@ -35,7 +35,7 @@ class DecisionTreeClassifier:
     def get_nodes(self):
 
         node_list = []
-        node_list = self.tree_.get_node_list(node_list, self.tree_, 0)[1]
+        node_list = self.tree_.get_node_list(node_list, self.tree_, 0, 0, -1)[1]
         node_idx = numpy.zeros(len(node_list), dtype = int)
         for i,node in enumerate(node_list):
             node_idx[i] = node[0]
@@ -60,10 +60,18 @@ class DecisionTreeClassifier:
         node_true_branch = numpy.ones(len(node_list), dtype = int)*(-1)
         node_false_branch = numpy.ones(len(node_list), dtype = int)*(-1)
         node_p_right = numpy.zeros(len(node_list))
+        node_depth = numpy.ones(len(node_list), dtype = int)*(-1)
+        node_idx = numpy.ones(len(node_list), dtype = int)*(-1)
+        node_parent = numpy.ones(len(node_list), dtype = int)*(-1)
 
         for idx, n in enumerate(node_list):
 
             n = node_list[idx]
+            
+            node_idx[idx] = n[0]
+            node_depth[idx] = n[7]
+            node_parent[idx] = n[8]
+            
             if not n[3] is None:
                 node_feature_idx[idx] = n[1]
                 node_feature_th[idx] = n[2]
@@ -79,6 +87,9 @@ class DecisionTreeClassifier:
         self.node_false_branch = node_false_branch
         self.node_tree_results = node_tree_results
         self.node_p_right = node_p_right
+        self.node_depth = node_depth
+        self.node_idx = node_idx
+        self.node_parent = node_parent
         self.is_node_arr_init = True
 
         return
@@ -133,9 +144,16 @@ class DecisionTreeClassifier:
         else:
             X_pred = X[:,self.features]
             pX_pred = dX[:,self.features]
-            
-        #print(X_pred.shape, pX_pred.shape)
-        result = tree.predict_all(self.node_tree_results, self.node_feature_idx, self.node_feature_th, self.node_true_branch, self.node_false_branch, self.node_p_right, X_pred, pX_pred, keep_proba, return_leafs)
+        
+        if False:
+            result = tree.predict_all(self.node_tree_results, self.node_feature_idx, self.node_feature_th, self.node_true_branch, self.node_false_branch, self.node_p_right, X_pred, pX_pred, keep_proba, return_leafs)
+        else:
+            nof_objects = X_pred.shape[0]
+            result = numpy.zeros(nof_objects)
+            pnode = numpy.ones(nof_objects)
+            is_max = numpy.ones(nof_objects)
+            objects = numpy.arange(nof_objects)
+            tree.predict_all_vectorized(0, self.node_tree_results, self.node_feature_idx, self.node_feature_th, self.node_true_branch, self.node_false_branch, self.node_p_right, X_pred, pX_pred, keep_proba, result, objects, pnode, is_max)
 
         return result
 
@@ -368,9 +386,12 @@ class RandomForestClassifier:
         dX = numpy.zeros(X.shape) # TODO: return leafs with probabilities for PRF
         for i, tree in enumerate(self.estimators_):
             tree.node_arr_init()
+        
+        leafs = Parallel(n_jobs=-1, verbose = 0)(delayed(tree.predict_proba)
+                               (X, dX, return_leafs=True, X_ext=X_ext) for tree in self.estimators_)
+        #leafs = [tree.predict_proba(X, dX, return_leafs=True, X_ext=X_ext).reshape(-1,1) for tree in self.estimators_]
 
-        leafs = [tree.predict_proba(X, dX, return_leafs=True, X_ext=X_ext)[:,0].reshape(-1,1) for tree in self.estimators_]
-        leafs = numpy.hstack(leafs).astype(int)
+        leafs = numpy.vstack(leafs).astype(int).T
 
         return leafs
 

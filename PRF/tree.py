@@ -22,20 +22,21 @@ class _tree:
         self.p_right = p_right
         self.results = results # None for nodes, not None for leaves # TODO: decide what you want to do with this.
 
-    def get_node_list(self, node_list, this_node, node_idx):
+    def get_node_list(self, node_list, this_node, node_idx, depth, parent_node):
 
         node_idx_right = node_idx + 1
         last_node_left_branch = node_idx
         if type(this_node.true_branch) != type(None):
-            last_node_right_branch, node_list = self.get_node_list(node_list, this_node.true_branch, node_idx_right)
+      
+            last_node_right_branch, node_list = self.get_node_list(node_list, this_node.true_branch, node_idx_right, depth + 1, node_idx)
             node_idx_left = last_node_right_branch + 1
-            last_node_left_branch, node_list = self.get_node_list(node_list, this_node.false_branch, node_idx_left)
+            last_node_left_branch, node_list = self.get_node_list(node_list, this_node.false_branch, node_idx_left, depth + 1, node_idx)
 
 
         if type(this_node.results) != type(None):
-            node_list.append([node_idx, this_node.feature_index, this_node.feature_threshold, None,None, this_node.results, None])
+            node_list.append([node_idx, this_node.feature_index, this_node.feature_threshold, None,None, this_node.results, None, depth, parent_node])
         else:
-            node_list.append([node_idx, this_node.feature_index, this_node.feature_threshold, node_idx_right, node_idx_left, None, this_node.p_right])
+            node_list.append([node_idx, this_node.feature_index, this_node.feature_threshold, node_idx_right, node_idx_left, None, this_node.p_right, depth, parent_node])
 
         return last_node_left_branch, node_list
 
@@ -204,7 +205,7 @@ def fit_tree(X, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, max
         scaled_py_gini = numpy.multiply(py_gini, pnode[:,numpy.newaxis])
 
         current_score, normalization, class_p_arr = best_split._gini_init(scaled_py_gini)
-        if depth == 0:
+        if depth == -5:
             features_chosen_indices = m.choose_features(n_features, max_features)            
             best_gain, best_attribute, best_attribute_value = best_split.get_zero_depth_best_split(X, scaled_py_gini,  current_score, features_chosen_indices, max_features)
         else:
@@ -347,3 +348,44 @@ def predict_single(node_tree_results, node_feature_idx, node_feature_th, node_tr
                     summed_prediction += predict_single(node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, node_p_right, x, dx, false_branch_node, keep_proba, p_false, is_max_false, return_leafs)
 
         return summed_prediction
+    
+    
+############################################################
+############################################################
+############################################################
+############################################################
+############               PREDICT              ############
+############################################################
+############################################################
+############################################################
+############################################################
+
+
+
+@njit(parallel = True)
+def predict_all_vectorized(curr_node, node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, node_p_right, X, dX, keep_proba, leafs, objects, pnode, is_max):
+    
+    
+    n_objects_node = len(objects)
+    
+    node = curr_node
+    tree_results = node_tree_results[curr_node]
+    tree_feature_index = node_feature_idx[curr_node]
+    tree_feature_th = node_feature_th[curr_node]
+    true_branch_node = node_true_branch[curr_node]
+    false_branch_node = node_false_branch[curr_node]
+    p_right_node = node_p_right[curr_node]
+
+    if (tree_results[0] >= 0):
+        leafs[objects] = node
+    else:
+        p_split_right = m.split_probability_all(X[objects,tree_feature_index], dX[objects,tree_feature_index], tree_feature_th)
+        p_split_left = 1 - p_split_right
+        pnode_right, pnode_left, best_right, best_left, is_max_right, is_max_left, pnode_right_tot = m.get_split_objects(pnode[objects], p_split_right, p_split_left, is_max[objects], n_objects_node, keep_proba)
+        
+        predict_all_vectorized(true_branch_node, node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, node_p_right, X, dX, keep_proba, leafs, objects[best_right], pnode, is_max)
+        
+        predict_all_vectorized(false_branch_node, node_tree_results, node_feature_idx, node_feature_th, node_true_branch, node_false_branch, node_p_right, X, dX, keep_proba, leafs, objects[best_left], pnode, is_max)
+
+            
+    return 
