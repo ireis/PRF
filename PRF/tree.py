@@ -116,7 +116,8 @@ def get_synthetic_data(X, dX, py, py_remove, pnode, is_max):
 
 
 
-def fit_tree(X, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, max_features, feature_importances, tree_n_samples, keep_proba, unsupervised=False, new_syn_data_frac=0):
+def fit_tree(X, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, max_features, feature_importances,
+             tree_n_samples, keep_proba, unsupervised=False, new_syn_data_frac=0, min_py_sum_leaf=1):
     """
     function grows a recursive disicion tree according to the objects X and their classifications y
     """
@@ -162,7 +163,7 @@ def fit_tree(X, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, max
             pnode_right, pnode_left, best_right, best_left, is_max_right, is_max_left, pnode_right_tot = m.get_split_objects(pnode, p_split_right, p_split_left, is_max, n_objects_node, keep_proba)
 
             # Check if the best split is valid (that is not a useless 0-everything split)
-            th = 10*keep_proba
+            th = min_py_sum_leaf
             if (numpy.sum(pnode_right) >= th) and (numpy.sum(pnode_left) >= th):
                 # add the impurity of the best split into the feature importance value
                 p = scaled_py_gini.sum() / tree_n_samples
@@ -176,8 +177,8 @@ def fit_tree(X, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, max
 
                 # go to the next steps of the recursive process
                 depth = depth + 1
-                right_branch = fit_tree(X_right, dX_right, py_right, py_leafs_right, pnode_right, depth, is_max_right, tree_max_depth, max_features, feature_importances, tree_n_samples, keep_proba, unsupervised, new_syn_data_frac)
-                left_branch  = fit_tree(X_left,  dX_left,  py_left,  py_leafs_left , pnode_left, depth, is_max_left, tree_max_depth, max_features, feature_importances, tree_n_samples, keep_proba, unsupervised, new_syn_data_frac)
+                right_branch = fit_tree(X_right, dX_right, py_right, py_leafs_right, pnode_right, depth, is_max_right, tree_max_depth, max_features, feature_importances, tree_n_samples, keep_proba, unsupervised, new_syn_data_frac, min_py_sum_leaf)
+                left_branch  = fit_tree(X_left,  dX_left,  py_left,  py_leafs_left , pnode_left, depth, is_max_left, tree_max_depth, max_features, feature_importances, tree_n_samples, keep_proba, unsupervised, new_syn_data_frac, min_py_sum_leaf)
 
                 return _tree(feature_index=best_attribute, feature_threshold=best_attribute_value, true_branch=right_branch, false_branch=left_branch, p_right=pnode_right_tot)
 
