@@ -14,6 +14,13 @@ from .  import misc_functions as m
 
 
 @jit(cache=True, nopython=True)
+def gini(class_p_arr):
+    normalization = class_p_arr.sum()
+    v = class_p_arr / normalization
+    impurity = numpy.sum(v * (1 - v))
+    return normalization, impurity
+
+@jit(cache=True, nopython=True)
 def _gini_init(py):
 
     nof_classes = py.shape[1]
