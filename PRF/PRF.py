@@ -271,7 +271,7 @@ class RandomForestClassifier:
 
         return new_class_proba
 
-    def predict_single_tree(self, predict, X, dX, out, lock):
+    def predict_single_tree(self, predict, X, dX, out):
 
         # let all the trees vote - the function pick_best find the best class from each tree, and gives zero probability to all the others
         #prediction = numpy.vstack([self.pick_best(predict(x, dx)) for x, dx in zip(X,dX)])
@@ -281,14 +281,13 @@ class RandomForestClassifier:
 
         #print(prediction[:10])
 
-        with lock:
-            if len(out) == 1:
-                out[0] += prediction
-                #out2[0] += prediction[1]
-            else:
-                for i in range(len(out)):
-                    out[i] += prediction[i]
-                    #out2[i] += prediction[i][1]
+        if len(out) == 1:
+            out[0] += prediction
+            #out2[0] += prediction[1]
+        else:
+            for i in range(len(out)):
+                out[i] += prediction[i]
+                #out2[i] += prediction[i][1]
 
     def predict_proba(self, X, dX=None):
         """
@@ -298,7 +297,6 @@ class RandomForestClassifier:
         proba = numpy.zeros((X.shape[0], self.n_classes_), dtype=numpy.float64)
         #Parallel(n_jobs=-1,  backend="threading")(delayed(tree.node_arr_init)
         #                       () for tree in self.estimators_)
-        lock = threading.Lock()
         #Parallel(n_jobs=-1, verbose = 10, backend="threading")(delayed(self.predict_single_tree)
         #                       (tree.predict_proba, X, dX, all_proba,  lock) for tree in self.estimators_)
 
@@ -306,7 +304,7 @@ class RandomForestClassifier:
 
         for i, tree in enumerate(self.estimators_):
             tree.node_arr_init()
-            self.predict_single_tree(tree.predict_proba, X, dX, proba,  lock)
+            self.predict_single_tree(tree.predict_proba, X, dX, proba)
 
         proba /= self.n_estimators_
 
