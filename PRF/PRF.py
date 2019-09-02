@@ -19,7 +19,8 @@ class DecisionTreeClassifier:
     """
     This the the decision tree classifier class.
     """
-    def __init__(self, criterion='gini', max_features=None, use_py_gini = True, use_py_leafs = True, max_depth = None, keep_proba = 0.05, unsupervised=False, new_syn_data_frac=0):
+    def __init__(self, criterion='gini', max_features=None, use_py_gini = True, use_py_leafs = True, max_depth = None,
+                 keep_proba = 0.05, unsupervised=False, new_syn_data_frac=0, min_py_sum_leaf=1):
         self.criterion = criterion
         self.max_features = max_features
         self.use_py_gini = use_py_gini
@@ -29,6 +30,7 @@ class DecisionTreeClassifier:
         self.is_node_arr_init = False
         self.unsupervised = unsupervised
         self.new_syn_data_frac = new_syn_data_frac
+        self.min_py_sum_leaf = min_py_sum_leaf
 
     def get_nodes(self):
 
@@ -110,7 +112,7 @@ class DecisionTreeClassifier:
             py_leafs = py_flat
         depth = 0
 
-        self.tree_ = tree.fit_tree(X, pX, py_gini, py_leafs, pnode, depth, is_max, self.max_depth, self.max_features, self.feature_importances_, self.n_samples_, self.keep_proba, self.unsupervised, self.new_syn_data_frac)
+        self.tree_ = tree.fit_tree(X, pX, py_gini, py_leafs, pnode, depth, is_max, self.max_depth, self.max_features, self.feature_importances_, self.n_samples_, self.keep_proba, self.unsupervised, self.new_syn_data_frac, self.min_py_sum_leaf)
 
 
     def predict_proba(self, X, dX, return_leafs=False):
@@ -132,7 +134,8 @@ class DecisionTreeClassifier:
 ############################################################
 
 class RandomForestClassifier:
-    def __init__(self, n_estimators=10, criterion='gini', max_features='auto', use_py_gini = True, use_py_leafs = True, max_depth = None, keep_proba = 0.05, bootstrap=True, new_syn_data_frac=0):
+    def __init__(self, n_estimators=10, criterion='gini', max_features='auto', use_py_gini = True, use_py_leafs = True,
+                 max_depth = None, keep_proba = 0.05, bootstrap=True, new_syn_data_frac=0, min_py_sum_leaf=1):
         self.n_estimators_ = n_estimators
         self.criterion = criterion
         self.max_features = max_features
@@ -143,6 +146,7 @@ class RandomForestClassifier:
         self.keep_proba = keep_proba
         self.bootstrap = bootstrap
         self.new_syn_data_frac = new_syn_data_frac
+        self.min_py_sum_leaf = min_py_sum_leaf
 
     def check_input_X(self, X, dX):
 
@@ -172,7 +176,6 @@ class RandomForestClassifier:
 
     def _fit_single_tree(self, X, pX, py):
 
-        numpy.random.seed()
         tree = DecisionTreeClassifier(criterion=self.criterion,
                               max_features=self.max_features_num,
                               use_py_gini = self.use_py_gini,
@@ -180,7 +183,8 @@ class RandomForestClassifier:
                               max_depth = self.max_depth,
                               keep_proba = self.keep_proba,
                               unsupervised = self.unsupervised,
-                              new_syn_data_frac = self.new_syn_data_frac)
+                              new_syn_data_frac = self.new_syn_data_frac,
+                              min_py_sum_leaf=self.min_py_sum_leaf)
 
         if self.bootstrap:
             X_chosen, pX_chosen, py_chosen = self._choose_objects(X, pX, py)
@@ -272,7 +276,7 @@ class RandomForestClassifier:
 
         return new_class_proba
 
-    def predict_single_tree(self, predict, X, dX, out, lock):
+    def predict_single_tree(self, predict, X, dX, out):
 
         # let all the trees vote - the function pick_best find the best class from each tree, and gives zero probability to all the others
         #prediction = numpy.vstack([self.pick_best(predict(x, dx)) for x, dx in zip(X,dX)])
@@ -282,14 +286,13 @@ class RandomForestClassifier:
 
         #print(prediction[:10])
 
-        with lock:
-            if len(out) == 1:
-                out[0] += prediction
-                #out2[0] += prediction[1]
-            else:
-                for i in range(len(out)):
-                    out[i] += prediction[i]
-                    #out2[i] += prediction[i][1]
+        if len(out) == 1:
+            out[0] += prediction
+            #out2[0] += prediction[1]
+        else:
+            for i in range(len(out)):
+                out[i] += prediction[i]
+                #out2[i] += prediction[i][1]
 
     def predict_proba(self, X, dX=None):
         """
@@ -299,7 +302,6 @@ class RandomForestClassifier:
         proba = numpy.zeros((X.shape[0], self.n_classes_), dtype=numpy.float64)
         #Parallel(n_jobs=-1,  backend="threading")(delayed(tree.node_arr_init)
         #                       () for tree in self.estimators_)
-        lock = threading.Lock()
         #Parallel(n_jobs=-1, verbose = 10, backend="threading")(delayed(self.predict_single_tree)
         #                       (tree.predict_proba, X, dX, all_proba,  lock) for tree in self.estimators_)
 
@@ -307,7 +309,7 @@ class RandomForestClassifier:
 
         for i, tree in enumerate(self.estimators_):
             tree.node_arr_init()
-            self.predict_single_tree(tree.predict_proba, X, dX, proba,  lock)
+            self.predict_single_tree(tree.predict_proba, X, dX, proba)
 
         proba /= self.n_estimators_
 
