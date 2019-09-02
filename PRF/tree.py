@@ -165,7 +165,7 @@ def fit_tree(X, dX, py_gini, py_leafs, pnode, depth, is_max, tree_max_depth, max
             th = 10*keep_proba
             if (numpy.sum(pnode_right) >= th) and (numpy.sum(pnode_left) >= th):
                 # add the impurity of the best split into the feature importance value
-                p = n_objects_node / tree_n_samples
+                p = scaled_py_gini.sum() / tree_n_samples
                 feature_importances[best_attribute] += p * best_gain
 
                 # Split all the arrays according to the indicies we have for the object in each side of the split
