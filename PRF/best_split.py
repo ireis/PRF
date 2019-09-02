@@ -58,7 +58,10 @@ def _gini_update(normalization, class_p_arr, py):
         class_p_arr[class_idx] +=  py[class_idx]
 
         # fraction of class size
-        class_p = class_p_arr[class_idx]/normalization
+        if normalization != 0:  # avoid divide by zero (in case of an empty node)
+            class_p = class_p_arr[class_idx] / normalization
+        else:
+            class_p = 0
 
         # gini impurity
         impurity += class_p*(1-class_p)
@@ -112,11 +115,10 @@ def get_best_split(X, py, current_score, features_chosen_indices, max_features):
         nof_objects_right = nof_objects_itr
         nof_objects_left = 0
 
-        # In each iteration of this loop we move object by object from the left to the right side of the loop.
-        nof_objects_left += 1
-        nof_objects_right -= 1
-        while (nof_objects_right>0) and (nof_objects_left>0):
-        #for i in range(nof_objects_itr):
+        while nof_objects_right >= 1:
+            # In each iteration of this loop we move object by object from the left to the right side of the loop.
+            nof_objects_left += 1
+            nof_objects_right -= 1
 
             move_idx = nof_objects_left - 1
             # Update the impurities on both sides
@@ -125,7 +127,7 @@ def get_best_split(X, py, current_score, features_chosen_indices, max_features):
 
             # if we have the same values for different objects we need to move all of them
 
-            while isclose(x_sorted[move_idx],x_sorted[move_idx + 1]) and (nof_objects_right > 1):
+            while (nof_objects_right >= 1) and isclose(x_sorted[move_idx],x_sorted[move_idx + 1]):
                 nof_objects_left += 1
                 nof_objects_right -= 1
                 move_idx = nof_objects_left - 1
@@ -149,9 +151,5 @@ def get_best_split(X, py, current_score, features_chosen_indices, max_features):
                 best_gain = gain
                 best_attribute = feature_index
                 best_attribute_value = feature_values[x_asort[move_idx]]
-
-            # Update the number of objects in each side of the split
-            nof_objects_left += 1
-            nof_objects_right -= 1
 
     return  best_gain, best_attribute, best_attribute_value
