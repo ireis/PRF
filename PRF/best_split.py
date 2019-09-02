@@ -166,6 +166,9 @@ def get_best_split(X, py, current_score, features_chosen_indices, max_features):
                 # Save the values of the best split so far
                 best_gain = gain
                 best_attribute = feature_index
-                best_attribute_value = feature_values[x_asort[move_idx]]
+
+                if move_idx < (nof_objects - nof_objects_skip - 1):
+                    s = feature_values[x_asort[move_idx]] + feature_values[x_asort[move_idx + 1]]
+                    best_attribute_value = s / 2
 
     return  best_gain, best_attribute, best_attribute_value
