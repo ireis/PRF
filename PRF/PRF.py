@@ -172,7 +172,6 @@ class RandomForestClassifier:
 
     def _fit_single_tree(self, X, pX, py):
 
-        numpy.random.seed()
         tree = DecisionTreeClassifier(criterion=self.criterion,
                               max_features=self.max_features_num,
                               use_py_gini = self.use_py_gini,
