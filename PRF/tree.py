@@ -1,5 +1,5 @@
 import numpy
-from numba import jit, jitclass
+from numba import jit
 
 from . import best_split
 from . import misc_functions as m
@@ -8,7 +8,7 @@ from . import misc_functions as m
 #reload(m)
 #reload(best_split)
 
-cache = True
+cache = False
 
 class _tree:
     """
