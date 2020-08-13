@@ -240,7 +240,7 @@ class RandomForestClassifier:
         tree_list = [self._fit_single_tree(X, dX, py) for i in range(self.n_estimators_)]
         #tree_list = Parallel(n_jobs=-1, verbose = 0)(delayed(self._fit_single_tree)
         #                                          (X, dX, py)                   for i in range(self.n_estimators_))
-
+        self.estimators_ = []
         for tree in tree_list:
             self.estimators_.append(tree)
             self.feature_importances_ += numpy.array(tree.feature_importances_)
@@ -311,7 +311,9 @@ class RandomForestClassifier:
             tree.node_arr_init()
             self.predict_single_tree(tree.predict_proba, X, dX, proba)
 
-        proba /= self.n_estimators_
+        #proba /= self.n_estimators_
+        proba = [p/numpy.sum(p) for p in proba]
+
 
         return proba
 
