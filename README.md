@@ -31,6 +31,13 @@ also see PRF/examples folder:
 
 https://nbviewer.jupyter.org/github/ireis/PRF/blob/master/PRF/examples/PRF_for_missing_data.ipynb
 
+## uncertainties in labels
+To use the PRF with uncertainties in labels, use the input variable py instead of y.
+py is intended to have the probability of an item to have each of the possible labels.
+That is, py is an array of size (number of objects x number of labels).
+For example, if you have 70% confidence in having label 1 for one item, and you have 2 possible labels, py for this item is (0.7, 0.3).
+For a second item, having 65% confidence to have the other label, py would be (0.35,0.65).
+
 ## Authors
 
 * **Itamar Reis** - https://github.com/ireis
