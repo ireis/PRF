@@ -135,7 +135,7 @@ class DecisionTreeClassifier:
 
 class RandomForestClassifier:
     def __init__(self, n_estimators=10, criterion='gini', max_features='auto', use_py_gini = True, use_py_leafs = True,
-                 max_depth = None, keep_proba = 0.05, bootstrap=True, new_syn_data_frac=0, min_py_sum_leaf=1):
+                 max_depth = None, keep_proba = 0.05, bootstrap=True, new_syn_data_frac=0, min_py_sum_leaf=1, n_jobs=1):
         self.n_estimators_ = n_estimators
         self.criterion = criterion
         self.max_features = max_features
@@ -147,6 +147,7 @@ class RandomForestClassifier:
         self.bootstrap = bootstrap
         self.new_syn_data_frac = new_syn_data_frac
         self.min_py_sum_leaf = min_py_sum_leaf
+        self.n_jobs = n_jobs
 
     def check_input_X(self, X, dX):
 
@@ -236,10 +237,11 @@ class RandomForestClassifier:
             self.label_dict = {i:i for i in range(self.n_classes_)}
 
         X, dX = self.check_input_X(X, dX)
-
-        tree_list = [self._fit_single_tree(X, dX, py) for i in range(self.n_estimators_)]
-        #tree_list = Parallel(n_jobs=-1, verbose = 0)(delayed(self._fit_single_tree)
-        #                                          (X, dX, py)                   for i in range(self.n_estimators_))
+        if self.n_jobs == 1:
+            tree_list = [self._fit_single_tree(X, dX, py) for i in range(self.n_estimators_)]
+        else:
+            tree_list = Parallel(n_jobs=self.n_jobs, verbose = 0)(delayed(self._fit_single_tree)
+                                                      (X, dX, py)                   for i in range(self.n_estimators_))
         self.estimators_ = []
         for tree in tree_list:
             self.estimators_.append(tree)
