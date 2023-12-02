@@ -22,7 +22,7 @@ Tested only on python 3, please email ```itamareis@gmail.com``` if you encounter
 ## example usage   
 ```
 from PRF import prf
-prf_cls = prf(n_estimators=10, bootstrap=True, keep_proba=0.05)
+prf_cls = prf(n_estimators=10, bootstrap=True, keep_proba=0.05, n_jobs=2)
 prf_cls.fit(X=X_train, dX=dX_train, y=y_train)
 pred = prf_cls.predict(X=X_test, dX=dX_test)
 ```
